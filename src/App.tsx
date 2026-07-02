@@ -9,22 +9,42 @@ import AdminDashboard from './components/AdminDashboard';
 import NotificationToast from './components/NotificationToast';
 import { Product, CartItem, Order, User, SystemNotification, AdminSettings } from './types';
 import { Sparkles, MessageSquare, ShieldCheck, Heart } from 'lucide-react';
+import { INITIAL_PRODUCTS, INITIAL_ADMIN_SETTINGS } from './mockData';
 
 export default function App() {
   // Authentication & Users
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
-  // Data State
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
-  const [adminSettings, setAdminSettings] = useState<AdminSettings>({
-    danaPhone: '089520617743',
-    danaName: 'Cleanza Laundry & Cleaning Store',
-    qrisUrl: '',
-    storeAddress: '',
-    githubUrl: 'https://github.com/rafiqradian797/cleanza-store'
+  // Data State with localStorage fallback for complete static/GitHub Pages support
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('cleanza_products');
+    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
+  
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('cleanza_orders');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
+  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
+  
+  const [adminSettings, setAdminSettings] = useState<AdminSettings>(() => {
+    const saved = localStorage.getItem('cleanza_settings');
+    return saved ? JSON.parse(saved) : INITIAL_ADMIN_SETTINGS;
+  });
+
+  // Sync to localStorage
+  useEffect(() => {
+    localStorage.setItem('cleanza_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('cleanza_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem('cleanza_settings', JSON.stringify(adminSettings));
+  }, [adminSettings]);
 
   // Shopping Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -337,6 +357,8 @@ export default function App() {
         onOpenAuth={() => setIsAuthOpen(true)}
         adminSettings={adminSettings}
         onCheckoutSuccess={handleCheckoutSuccess}
+        orders={orders}
+        onUpdateOrders={setOrders}
       />
 
       <AdminDashboard
@@ -351,6 +373,8 @@ export default function App() {
         adminSettings={adminSettings}
         onUpdateSettings={setAdminSettings}
         currentUser={currentUser}
+        onUpdateProducts={setProducts}
+        onUpdateOrders={setOrders}
       />
 
       {/* Real-time transaction Toast Popups */}
