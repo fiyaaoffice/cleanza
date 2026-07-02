@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ShoppingCart, User, Bell, Settings, LogOut, Search, Sparkles } from 'lucide-react';
-import { User as UserType, SystemNotification } from '../types';
+import { ShoppingCart, User, Bell, Settings, LogOut, Search, Sparkles, Github } from 'lucide-react';
+import { User as UserType, SystemNotification, AdminSettings } from '../types';
 import Logo from './Logo';
 
 interface HeaderProps {
@@ -14,6 +14,7 @@ interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onLogout: () => void;
+  adminSettings?: AdminSettings;
 }
 
 export default function Header({
@@ -26,7 +27,8 @@ export default function Header({
   onMarkNotificationsRead,
   searchQuery,
   setSearchQuery,
-  onLogout
+  onLogout,
+  adminSettings
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -35,11 +37,23 @@ export default function Header({
     <header className="sticky top-0 z-40 w-full glass-effect border-b border-cleanza-glass-border">
       {/* Top Bar - Shopee style text shortcuts */}
       <div className="bg-[#017A3E] text-white text-[10px] sm:text-xs py-1.5 px-4 md:px-8 flex justify-between items-center font-sans">
-        <div className="hidden md:flex gap-4">
+        <div className="hidden md:flex gap-4 items-center">
           <span className="hover:text-[#FFD800] cursor-pointer transition-colors">Seller Centre</span>
           <span>|</span>
-          <span className="hover:text-[#FFD800] cursor-pointer transition-colors"></span>
-          <span>|</span>
+          {adminSettings?.githubUrl && (
+            <>
+              <a 
+                href={adminSettings.githubUrl} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:text-[#FFD800] flex items-center gap-1 transition-colors"
+              >
+                <Github className="w-3.5 h-3.5" />
+                <span>GitHub Repository</span>
+              </a>
+              <span>|</span>
+            </>
+          )}
           <span className="flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-[#FFD800]" />
           </span>

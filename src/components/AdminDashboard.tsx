@@ -1112,6 +1112,16 @@ export default function AdminDashboard({
                           className="w-full glass-input px-3 py-2.5 rounded-xl text-xs"
                         />
                       </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-600 block mb-1">Tautan Repository GitHub Website (Untuk Integrasi Kode)</label>
+                        <input 
+                          type="text" 
+                          placeholder="https://github.com/username/repository"
+                          value={settingsForm.githubUrl || ''}
+                          onChange={e => setSettingsForm({...settingsForm, githubUrl: e.target.value})}
+                          className="w-full glass-input px-3 py-2.5 rounded-xl text-xs"
+                        />
+                      </div>
                     </div>
 
                     {settingsStatus && (

@@ -22,7 +22,7 @@ export default function Logo({ className = '', size = 'md', showText = true }: L
         <img 
           src="/src/assets/images/cleanza_logo_1782968054052.png"
           alt="Cleanza Logo"
-          className={`${dimensions} rounded-xl object-cover border-2 border-[#FFD800]`}
+          className={`${dimensions} rounded-xl object-cover`}
           onError={(e) => {
             // Fallback to stylized local image or visual icon if loaded directly in iframe
             e.currentTarget.style.display = 'none';

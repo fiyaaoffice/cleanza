@@ -22,7 +22,8 @@ export default function App() {
     danaPhone: '089520617743',
     danaName: 'Cleanza Laundry & Cleaning Store',
     qrisUrl: '',
-    storeAddress: ''
+    storeAddress: '',
+    githubUrl: 'https://github.com/rafiqradian797/cleanza-store'
   });
 
   // Shopping Cart State
@@ -244,6 +245,7 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onLogout={handleLogout}
+        adminSettings={adminSettings}
       />
 
       {/* 2. DYNAMIC MAIN BODY */}
@@ -315,7 +317,7 @@ export default function App() {
       </main>
 
       {/* 3. GLASS FOOTER WITH BRAND HIGHLIGHTS */}
-      <Footer />
+      <Footer adminSettings={adminSettings} />
 
       {/* 4. MODALS INTERACTION STACK */}
       <AuthModal

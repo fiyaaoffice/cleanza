@@ -73,4 +73,5 @@ export interface AdminSettings {
   qrisUrl: string; // Base64 or uploaded image url or mock QRIS string
   storeAddress: string;
   whatsappApiToken?: string;
+  githubUrl?: string;
 }
