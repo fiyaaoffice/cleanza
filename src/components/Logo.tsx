@@ -49,9 +49,6 @@ export default function Logo({ className = '', size = 'md', showText = true }: L
       </div>
 
       {showText && (
-        <span className={`${textSizes} font-sans`}>
-          <span className="text-[#017A3E]">Clean</span>
-          <span className="text-[#FFD800]">za</span>
         </span>
       )}
     </div>
