@@ -38,15 +38,6 @@ export default function Logo({ className = '', size = 'md', showText = true }: L
               setHasError(true);
             }}
           />
-        ) : (
-          /* SVG Fallback markup if the image fails or loads slowly */
-          <div className="flex items-center justify-center bg-[#017A3E] text-white rounded-xl p-2.5 border border-white/30 transform rotate-[-3deg] hover:rotate-0 transition-transform shadow-sm">
-            <svg className={`${dimensions} text-[#FFD800]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m12 3-1.912 5.886L5 10.8l4.088 1.914L11 18.6l1.912-5.886L17 10.8l-4.088-1.914Z"/>
-            </svg>
-          </div>
-        )}
-      </div>
 
       {showText && (
         </span>
