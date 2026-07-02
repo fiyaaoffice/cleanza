@@ -1,4 +1,6 @@
 import React from 'react';
+// @ts-ignore
+import cleanzaLogo from '../assets/images/cleanza_logo_1782968054052.png';
 
 interface LogoProps {
   className?: string;
@@ -20,7 +22,7 @@ export default function Logo({ className = '', size = 'md', showText = true }: L
       {/* Real Generated Logo Asset with SVG Fallback */}
       <div className="relative shrink-0 select-none">
         <img 
-          src="/src/assets/images/cleanza_logo_1782968054052.png"
+          src={cleanzaLogo}
           alt="Cleanza Logo"
           className={`${dimensions} rounded-xl object-cover`}
           onError={(e) => {
