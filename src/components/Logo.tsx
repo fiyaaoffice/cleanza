@@ -1,6 +1,4 @@
-import React from 'react';
-// @ts-ignore
-import cleanzaLogo from '../assets/images/cleanza_logo_1782968054052.png';
+import React, { useState } from 'react';
 
 interface LogoProps {
   className?: string;
@@ -9,6 +7,8 @@ interface LogoProps {
 }
 
 export default function Logo({ className = '', size = 'md', showText = true }: LogoProps) {
+  const [hasError, setHasError] = useState(false);
+
   // Dimensions based on size
   const dimensions = {
     sm: 'w-8 h-8',
@@ -17,26 +17,44 @@ export default function Logo({ className = '', size = 'md', showText = true }: L
     xl: 'w-24 h-24'
   }[size];
 
+  // Font sizes for the text label
+  const textSizes = {
+    sm: 'text-base font-bold',
+    md: 'text-xl font-extrabold tracking-tight',
+    lg: 'text-2xl font-black tracking-tight',
+    xl: 'text-4xl font-black tracking-tight'
+  }[size];
+
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div className={`flex items-center gap-2.5 ${className}`}>
       {/* Real Generated Logo Asset with SVG Fallback */}
       <div className="relative shrink-0 select-none">
-        <img 
-          src={cleanzaLogo}
-          alt="Cleanza Logo"
-          className={`${dimensions} rounded-xl object-cover`}
-          onError={(e) => {
-            // Fallback to stylized local image or visual icon if loaded directly in iframe
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-        {/* SVG Fallback markup if the image fails or loads slowly */}
-        <div className="hidden only-child:flex items-center justify-center bg-[#017A3E] text-white rounded-2xl p-2.5 border-2 border-white/50 transform rotate-[-3deg] hover:rotate-0 transition-transform">
-          <svg className={`${dimensions} text-[#FFD800]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m12 3-1.912 5.886L5 10.8l4.088 1.914L11 18.6l1.912-5.886L17 10.8l-4.088-1.914Z"/>
-          </svg>
-        </div>
+        {!hasError ? (
+          <img 
+            src="./logo.png"
+            alt="Cleanza Logo"
+            className={`${dimensions} rounded-xl object-cover`}
+            onError={() => {
+              setHasError(true);
+            }}
+          />
+        ) : (
+          /* SVG Fallback markup if the image fails or loads slowly */
+          <div className="flex items-center justify-center bg-[#017A3E] text-white rounded-xl p-2.5 border border-white/30 transform rotate-[-3deg] hover:rotate-0 transition-transform shadow-sm">
+            <svg className={`${dimensions} text-[#FFD800]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m12 3-1.912 5.886L5 10.8l4.088 1.914L11 18.6l1.912-5.886L17 10.8l-4.088-1.914Z"/>
+            </svg>
+          </div>
+        )}
       </div>
+
+      {showText && (
+        <span className={`${textSizes} font-sans`}>
+          <span className="text-[#017A3E]">Clean</span>
+          <span className="text-[#FFD800]">za</span>
+        </span>
+      )}
     </div>
   );
 }
+
