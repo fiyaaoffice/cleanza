@@ -1,0 +1,6 @@
+{
+  "name": "Cleanza",
+  "description": "Modern minimalist glassmorphism cleaning e-commerce platform with safe DANA QRIS payment, WhatsApp OTP login, real-time tracking and comprehensive admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

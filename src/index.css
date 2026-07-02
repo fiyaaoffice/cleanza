@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-cleanza-green: #017A3E;
+  --color-cleanza-yellow: #FFD800;
+  --color-cleanza-dark: #121212;
+  --color-cleanza-glass: rgba(255, 255, 255, 0.7);
+  --color-cleanza-glass-border: rgba(255, 255, 255, 0.4);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(1, 122, 62, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(1, 122, 62, 0.5);
+}
+
+/* Glassmorphism utility styles */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-effect-dark {
+  background: rgba(18, 18, 18, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(1, 122, 62, 0.04);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(1, 122, 62, 0.25);
+  box-shadow: 0 12px 40px 0 rgba(1, 122, 62, 0.08);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease-in-out;
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #017A3E;
+  box-shadow: 0 0 0 3px rgba(1, 122, 62, 0.15);
+  outline: none;
+}
+
+/* Shopee-like tab transitions */
+.tab-active {
+  color: #017A3E;
+  border-bottom: 3px solid #017A3E;
+}
+
+/* Base custom styles */
+body {
+  background-color: #f7f9fa;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(1, 122, 62, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(255, 216, 0, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: #121212;
+}
