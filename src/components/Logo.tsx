@@ -31,7 +31,7 @@ export default function Logo({ className = '', size = 'md', showText = true }: L
       <div className="relative shrink-0 select-none">
         {!hasError ? (
           <img 
-            src="./logo.png"
+            src="./src/assets/images/cleanza_logo_1782968054052.png"
             alt="Cleanza Logo"
             className={`${dimensions} rounded-xl object-cover`}
             onError={() => {
