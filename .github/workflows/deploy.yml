@@ -50,20 +50,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        # 1. Inisialisasi repositori Git lokal
-git init
-
-# 2. Tambahkan semua file proyek
-git add .
-
-# 3. Commit perubahan dengan pesan deskriptif
-git commit -m "fix: use relative path for main.tsx and assets to support GitHub Pages"
-
-# 4. Ubah nama branch utama menjadi main
-git branch -M main
-
-# 5. Hubungkan ke repositori GitHub Anda
-git remote add origin https://github.com/fiyaaoffice/cleanza
-
-# 6. Push kode ke GitHub (Terminal komputer lokal Anda akan meminta login/kredensial GitHub Anda)
-git push -u origin main
