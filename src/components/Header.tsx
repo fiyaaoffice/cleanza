@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, User, Bell, Settings, LogOut, Search, Sparkles, Github } from 'lucide-react';
+import { ShoppingCart, User, Bell, Settings, LogOut, Search, Sparkles } from 'lucide-react';
 import { User as UserType, SystemNotification, AdminSettings } from '../types';
 import Logo from './Logo';
 
@@ -40,20 +40,6 @@ export default function Header({
         <div className="hidden md:flex gap-4 items-center">
           <span className="hover:text-[#FFD800] cursor-pointer transition-colors">Seller Centre</span>
           <span>|</span>
-          {adminSettings?.githubUrl && (
-            <>
-              <a 
-                href={adminSettings.githubUrl} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="hover:text-[#FFD800] flex items-center gap-1 transition-colors"
-              >
-                <Github className="w-3.5 h-3.5" />
-                <span>GitHub Repository</span>
-              </a>
-              <span>|</span>
-            </>
-          )}
           <span className="flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-[#FFD800]" />
           </span>
@@ -146,28 +132,76 @@ export default function Header({
       </div>
 
       {/* Main Header Container */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col md:flex-row items-center gap-4 justify-between">
-        {/* Brand Logo */}
-        <div className="cursor-pointer" onClick={() => setSearchQuery('')}>
-          <Logo size="md" />
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-3.5 md:py-4 flex flex-col md:flex-row items-center gap-3.5 md:gap-4 justify-between">
+        {/* Row 1: Brand Logo & Actions for Mobile */}
+        <div className="w-full md:w-auto flex justify-between items-center">
+          {/* Brand Logo */}
+          <div className="cursor-pointer" onClick={() => setSearchQuery('')}>
+            <Logo size="md" />
+          </div>
+
+          {/* Actions - Mobile visible right side */}
+          <div className="flex md:hidden items-center gap-3">
+            {/* Cart Icon */}
+            <button 
+              onClick={onOpenCart} 
+              className="relative p-2.5 bg-white hover:bg-gray-50 rounded-xl border border-gray-100 shadow-sm text-gray-700 hover:text-[#017A3E] transition-all cursor-pointer active:scale-95 duration-100"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-[#FFD800] text-[#121212] border border-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Auth / Profile actions */}
+            {currentUser ? (
+              <div className="flex gap-1.5">
+                {currentUser.role === 'admin' && (
+                  <button 
+                    onClick={onOpenAdmin} 
+                    className="p-2.5 bg-[#FFD800] text-[#121212] hover:bg-yellow-400 rounded-xl transition-all shadow-sm cursor-pointer active:scale-95"
+                    title="Admin Panel"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                )}
+                <button 
+                  onClick={onLogout} 
+                  className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-all border border-red-100 cursor-pointer active:scale-95"
+                  title="Keluar"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={onOpenAuth} 
+                className="text-xs font-bold bg-[#017A3E] text-white px-3.5 py-2 rounded-xl hover:bg-[#016533] transition-colors"
+              >
+                Masuk
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Shopee-style Search Bar */}
         <div className="relative w-full md:max-w-xl flex">
           <input
             type="text"
-            placeholder="Cari deterjen, paket laundry premium, atau deep cleaning rumah..."
+            placeholder="Cari deterjen, paket laundry premium..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full glass-input px-4 py-2.5 rounded-l-xl text-sm pr-12 focus:ring-2 focus:ring-[#017A3E] border-r-0"
           />
-          <button className="bg-[#017A3E] hover:bg-[#016533] text-white px-6 rounded-r-xl transition-all flex items-center justify-center border-l-0 shadow-sm active:scale-95 cursor-pointer">
+          <button className="bg-[#017A3E] hover:bg-[#016533] text-white px-5 rounded-r-xl transition-all flex items-center justify-center border-l-0 shadow-sm active:scale-95 cursor-pointer">
             <Search className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Actions - Cart & User menu */}
-        <div className="flex items-center gap-5">
+        {/* Actions - Desktop only */}
+        <div className="hidden md:flex items-center gap-5">
           {/* Cart Icon with Shopee styling */}
           <button 
             onClick={onOpenCart} 
@@ -198,7 +232,7 @@ export default function Header({
                 className="flex items-center gap-1 px-3 py-2 text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-all border border-red-100 cursor-pointer active:scale-95 duration-100"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Keluar</span>
+                <span>Keluar</span>
               </button>
             </div>
           )}

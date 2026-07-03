@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, ShieldCheck, Heart, Mail, Phone, MapPin, Github } from 'lucide-react';
+import { Sparkles, ShieldCheck, Heart, Mail, Phone, MapPin } from 'lucide-react';
 import Logo from './Logo';
 import { AdminSettings } from '../types';
 
@@ -21,17 +21,6 @@ export default function Footer({ adminSettings }: FooterProps) {
             <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-gray-100 shadow-sm text-[#017A3E] hover:bg-[#017A3E] hover:text-white transition-all cursor-pointer">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            {adminSettings?.githubUrl && (
-              <a 
-                href={adminSettings.githubUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-gray-100 shadow-sm text-gray-700 hover:bg-gray-900 hover:text-white transition-all cursor-pointer active:scale-95 duration-100"
-                title="Hubungkan Website dengan GitHub"
-              >
-                <Github className="w-4 h-4" />
-              </a>
-            )}
           </div>
         </div>
 
