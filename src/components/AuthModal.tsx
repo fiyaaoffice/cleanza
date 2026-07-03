@@ -65,16 +65,15 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
       }
     } catch (err: any) {
       console.error("Auth error details:", err);
-      // Auto-detect Firebase Unauthorized Domain inside AI Studio Preview Sandbox
+      // Auto-detect Firebase Unauthorized Domain inside AI Studio Preview Sandbox / GitHub / Custom domain
       if (
         err?.code === 'auth/unauthorized-domain' || 
         err?.message?.includes('unauthorized-domain') ||
         err?.code === 'auth/popup-blocked' ||
         err?.message?.includes('popup-blocked')
       ) {
-        // Switch to direct safe Google sandbox auth sync bypass so the user is NEVER blocked
         setShowBypassInput(true);
-        setError('Sandbox Firebase: Domain preview ini belum diotorisasi di Firebase Console. Gunakan koneksi instan Google di bawah ini agar Anda tetap bisa masuk secara personal!');
+        setError(`Domain ini (${window.location.hostname}) belum diotorisasi di Firebase Console Anda. Anda dapat mendaftarkan domain ini di Firebase Console > Authentication > Settings > Authorized Domains. Atau gunakan tombol Masuk Instan Cepat di bawah ini.`);
       } else if (err?.code === 'auth/popup-closed-by-user' || err?.message?.includes('popup-closed-by-user')) {
         setError('Jendela masuk Google ditutup sebelum selesai. Silakan klik tombol Google kembali.');
       } else {
@@ -85,32 +84,26 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
     }
   };
 
-  // Safe Google Sandbox Sync handler
-  const handleBypassGoogleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bypassEmail || !bypassEmail.includes('@')) {
-      setError('Mohon masukkan email Google yang valid.');
-      return;
-    }
-
+  // Instant Bypass handler
+  const handleInstantBypass = async (email: string) => {
     setError('');
+    setSuccessMsg('');
     setLoading(true);
     try {
-      // Direct call to synchronize backend for this email (gives full customer/admin privileges as requested!)
       const response = await fetch('/api/auth/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: bypassEmail,
-          name: bypassEmail.split('@')[0].toUpperCase(),
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(bypassEmail)}`,
+          email: email,
+          name: email.split('@')[0].toUpperCase(),
+          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}`,
           googleId: `sandbox-${Math.random().toString(36).substring(7)}`
         }),
       });
 
       const data = await response.json();
       if (response.ok && data.success) {
-        setSuccessMsg(`Berhasil menyinkronkan Google Account: ${bypassEmail}`);
+        setSuccessMsg(`Berhasil masuk instan sebagai: ${email}`);
         setTimeout(() => {
           onLoginSuccess(data.user);
           onClose();
@@ -123,6 +116,16 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
     } finally {
       setLoading(false);
     }
+  };
+
+  // Safe Google Sandbox Sync handler
+  const handleBypassGoogleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bypassEmail || !bypassEmail.includes('@')) {
+      setError('Mohon masukkan email Google yang valid.');
+      return;
+    }
+    await handleInstantBypass(bypassEmail);
   };
 
   // Real Firebase Email/Password Register & Login Flow
@@ -406,26 +409,50 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
 
                 {/* 2. Sandbox Bypass Google Connection Form (shown automatically on error, or triggered via link) */}
                 {showBypassInput && (
-                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 mt-2 animate-fade-in">
-                    <p className="text-[9px] text-amber-800 leading-relaxed font-semibold mb-2">
-                      Hubungkan akun Google Anda secara langsung untuk melewati pembatasan domain sandbox AI Studio:
+                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 mt-2.5 animate-fade-in space-y-2.5 text-left">
+                    <p className="text-[10px] text-amber-800 leading-relaxed font-bold">
+                      ⚠️ Firebase Domain Authorization Required:
                     </p>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="email"
-                        placeholder="Masukkan Email Google Pribadi Anda"
-                        value={bypassEmail}
-                        onChange={(e) => setBypassEmail(e.target.value)}
-                        className="flex-1 border border-amber-300 focus:border-[#017A3E] focus:ring-1 focus:ring-[#017A3E] bg-white rounded px-2.5 py-1.5 text-xs outline-none"
-                      />
+                    <p className="text-[9px] text-gray-600 leading-relaxed">
+                      Domain <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-mono">{window.location.hostname}</code> belum ditambahkan di **Firebase Console &gt; Authentication &gt; Settings &gt; Authorized Domains**.
+                    </p>
+                    
+                    <div className="pt-1.5 border-t border-amber-200/60 space-y-2">
+                      <p className="text-[9.5px] text-[#017A3E] font-extrabold leading-normal">
+                        Bypass Cepat (Satu Klik untuk Masuk Langsung):
+                      </p>
                       <button
                         type="button"
-                        onClick={handleBypassGoogleAuth}
+                        onClick={() => handleInstantBypass('rafiqradian797@gmail.com')}
                         disabled={loading}
-                        className="bg-[#017A3E] hover:bg-[#016533] text-white text-[10px] font-bold px-3 py-1.5 rounded cursor-pointer active:scale-95 shrink-0"
+                        className="w-full bg-[#017A3E] hover:bg-[#016533] text-white text-[10px] font-extrabold py-2 px-3 rounded-md shadow-sm transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-1"
                       >
-                        Hubungkan
+                        <Sparkles className="w-3.5 h-3.5 animate-bounce text-yellow-300" />
+                        <span>MASUK SEBAGAI: rafiqradian797@gmail.com</span>
                       </button>
+                    </div>
+
+                    <div className="pt-2 border-t border-amber-200/60 space-y-1.5">
+                      <p className="text-[9px] text-gray-500 font-medium">
+                        Atau gunakan alamat email Google kustom Anda:
+                      </p>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="email"
+                          placeholder="Masukkan Email Google Anda"
+                          value={bypassEmail}
+                          onChange={(e) => setBypassEmail(e.target.value)}
+                          className="flex-1 border border-amber-300 focus:border-[#017A3E] focus:ring-1 focus:ring-[#017A3E] bg-white rounded px-2.5 py-1.5 text-[11px] outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleBypassGoogleAuth}
+                          disabled={loading}
+                          className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-3 py-1.5 rounded cursor-pointer active:scale-95 shrink-0"
+                        >
+                          Hubungkan
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
