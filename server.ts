@@ -648,6 +648,82 @@ app.post("/api/payments/sync", (req, res) => {
   });
 });
 
+// 7. Shipping Distance and Duration Calculation API using Google Maps
+app.post("/api/shipping/calculate", async (req, res) => {
+  const { origin, destination, weightGrams } = req.body;
+  if (!destination) {
+    return res.status(400).json({ error: "Alamat pengiriman harus diisi" });
+  }
+
+  const normalizedDestination = destination.toLowerCase();
+  const isCikarang = normalizedDestination.includes("cikarang");
+
+  let distanceKm = 35.5; // Default Cikarang distance estimate
+  let durationText = "45 Menit";
+  let source = "Simulation (No GMaps Key)";
+
+  const apiKey = process.env.GOOGLE_MAPS_PLATFORM_KEY || "";
+
+  if (isCikarang) {
+    if (apiKey) {
+      try {
+        const originsParam = encodeURIComponent(origin || "Kelapa Gading, Jakarta Utara");
+        const destinationsParam = encodeURIComponent(destination);
+        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originsParam}&destinations=${destinationsParam}&key=${apiKey}`;
+        
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === "OK" && data.rows?.[0]?.elements?.[0]?.status === "OK") {
+            const element = data.rows[0].elements[0];
+            const distanceMeters = element.distance.value;
+            const durationSeconds = element.duration.value;
+            
+            distanceKm = distanceMeters / 1000;
+            
+            // Format duration nicely in Indonesian
+            const mins = Math.ceil(durationSeconds / 60);
+            if (mins >= 60) {
+              const hrs = Math.floor(mins / 60);
+              const remainingMins = mins % 60;
+              durationText = `${hrs} Jam ${remainingMins > 0 ? `${remainingMins} Menit` : ""}`;
+            } else {
+              durationText = `${mins} Menit`;
+            }
+            source = "Google Maps API";
+          }
+        }
+      } catch (err) {
+        console.error("Error calling Google Maps API server-side:", err);
+      }
+    } else {
+      const hash = destination.length;
+      distanceKm = 30 + (hash % 15) + (hash % 10) / 10;
+      const minutes = Math.round(distanceKm * 1.5);
+      durationText = `${minutes} Menit`;
+    }
+  } else {
+    // If not in Cikarang, provide a general simulation for distance
+    distanceKm = 45.0 + (destination.length % 10);
+    const minutes = Math.round(distanceKm * 1.5);
+    durationText = `${minutes} Menit`;
+  }
+
+  const cleanzaExpressCost = isCikarang ? Math.max(10000, Math.round(distanceKm * 2500)) : 0;
+  const weightKg = Math.max(1, Math.ceil((weightGrams || 1000) / 1000));
+  const spxCost = 9000 * weightKg;
+
+  res.json({
+    success: true,
+    isCikarang,
+    distanceKm: parseFloat(distanceKm.toFixed(1)),
+    durationText,
+    source,
+    cleanzaExpressCost,
+    spxCost
+  });
+});
+
 
 // Load database initially
 loadDb();

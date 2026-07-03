@@ -18,14 +18,6 @@ interface CartModalProps {
   onUpdateOrders?: (orders: Order[]) => void;
 }
 
-const COURIERS = [
-  { id: 'j&t', name: 'J&T Express', service: 'Reguler (2-3 Hari)', ratePerKg: 9000, isInstant: false },
-  { id: 'jne', name: 'JNE Express', service: 'Reguler (2-4 Hari)', ratePerKg: 11000, isInstant: false },
-  { id: 'sicepat', name: 'Sicepat', service: 'BEST (Besok Sampai)', ratePerKg: 15000, isInstant: false },
-  { id: 'gosend', name: 'GoSend', service: 'Sameday (6-8 Jam)', ratePerKg: 20000, isInstant: true, flatRate: 20000 },
-  { id: 'grab', name: 'Grab Express', service: 'Instant (1-2 Jam)', ratePerKg: 35000, isInstant: true, flatRate: 35000 }
-];
-
 export default function CartModal({
   isOpen,
   onClose,
@@ -46,8 +38,13 @@ export default function CartModal({
   const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '');
   const [notes, setNotes] = useState('');
   
-  // Courier selection
-  const [selectedCourier, setSelectedCourier] = useState(COURIERS[0]);
+  // Dynamic Courier States
+  const [selectedCourierId, setSelectedCourierId] = useState<'cleanza_express' | 'spx'>('spx');
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [gmapsStatus, setGmapsStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [cleanzaExpressInfo, setCleanzaExpressInfo] = useState<{ distance?: number; duration?: string; cost: number; isAvailable: boolean }>({ cost: 0, isAvailable: false });
+  const [spxInfo, setSpxInfo] = useState<{ cost: number }>({ cost: 9000 });
+
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofUrl, setPaymentProofUrl] = useState('');
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -62,23 +59,101 @@ export default function CartModal({
     }
   }, [currentUser]);
 
-  if (!isOpen) return null;
-
   // Calculations
   const subtotal = cartItems.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
   const totalWeight = cartItems.reduce((acc, item) => acc + ((item.product.weight || 0) * item.quantity), 0); // in grams
-  
-  // Dynamic Shipping Cost
-  const calculatedShippingCost = () => {
-    if (totalWeight === 0) return 0; // service or no weight items
-    const weightInKg = Math.ceil(totalWeight / 1000);
-    if (selectedCourier.isInstant) {
-      return selectedCourier.flatRate || 25000;
+
+  // Fetch shipping costs and validation details
+  const fetchShippingDetails = async (dest: string) => {
+    if (!dest.trim()) {
+      setCleanzaExpressInfo({ cost: 0, isAvailable: false });
+      setSpxInfo({ cost: 0 });
+      setGmapsStatus('idle');
+      return;
     }
-    return selectedCourier.ratePerKg * weightInKg;
+
+    setShippingLoading(true);
+    try {
+      const response = await safeFetch('/api/shipping/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          origin: adminSettings.storeAddress,
+          destination: dest,
+          weightGrams: totalWeight
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCleanzaExpressInfo({
+          distance: data.distanceKm,
+          duration: data.durationText,
+          cost: data.cleanzaExpressCost,
+          isAvailable: data.isCikarang
+        });
+        setSpxInfo({
+          cost: data.spxCost
+        });
+        if (data.source === "Google Maps API") {
+          setGmapsStatus('success');
+        } else {
+          setGmapsStatus('idle');
+        }
+      } else {
+        setGmapsStatus('error');
+      }
+    } catch (err) {
+      console.error("Error calculating shipping:", err);
+      setGmapsStatus('error');
+    } finally {
+      setShippingLoading(false);
+    }
   };
 
-  const shippingCost = calculatedShippingCost();
+  // Debounce address changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchShippingDetails(address);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [address, totalWeight, adminSettings.storeAddress]);
+
+  // Ensure active selection switches to SPX if Cleanza Express becomes unavailable
+  useEffect(() => {
+    if (selectedCourierId === 'cleanza_express' && !cleanzaExpressInfo.isAvailable) {
+      setSelectedCourierId('spx');
+    }
+  }, [cleanzaExpressInfo.isAvailable, selectedCourierId]);
+
+  const currentCourierOptions = [
+    {
+      id: 'cleanza_express' as const,
+      name: 'Cleanza Express',
+      service: cleanzaExpressInfo.isAvailable 
+        ? `Sameday Delivery (${cleanzaExpressInfo.duration || 'Menghitung...'})` 
+        : 'Khusus wilayah Cikarang',
+      cost: cleanzaExpressInfo.cost,
+      isAvailable: cleanzaExpressInfo.isAvailable,
+      details: cleanzaExpressInfo.isAvailable && cleanzaExpressInfo.distance 
+        ? `${cleanzaExpressInfo.distance} Km via Google Maps` 
+        : 'Alamat pengiriman harus mencantumkan wilayah Cikarang'
+    },
+    {
+      id: 'spx' as const,
+      name: 'SPX (Shopee Xpress)',
+      service: 'Reguler (2-3 Hari)',
+      cost: spxInfo.cost,
+      isAvailable: true,
+      details: 'Tersedia untuk semua wilayah Indonesia'
+    }
+  ];
+
+  const selectedCourier = currentCourierOptions.find(c => c.id === selectedCourierId) || currentCourierOptions[1];
+
+  if (!isOpen) return null;
+
+  const shippingCost = selectedCourier.cost;
   const totalAmount = subtotal + shippingCost;
 
   const handleNextToShipping = () => {
@@ -340,32 +415,74 @@ export default function CartModal({
 
                 {/* Courier Selection Option */}
                 <div>
-                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">Pilih Jasa Kurir Pengiriman</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block">Pilih Jasa Kurir Pengiriman</label>
+                    {shippingLoading && (
+                      <span className="text-[10px] text-[#017A3E] animate-pulse flex items-center gap-1 font-medium">
+                        <span className="w-1.5 h-1.5 bg-[#017A3E] rounded-full animate-ping"></span>
+                        Mendeteksi rute...
+                      </span>
+                    )}
+                    {!shippingLoading && gmapsStatus === 'success' && (
+                      <span className="text-[10px] text-gray-400">
+                        Powered by Google Maps
+                      </span>
+                    )}
+                  </div>
                   <div className="space-y-2">
-                    {COURIERS.map(c => {
-                      const sampleRate = totalWeight === 0 ? 0 : (c.isInstant ? c.flatRate : c.ratePerKg * Math.ceil(totalWeight / 1000));
+                    {currentCourierOptions.map(c => {
+                      const sampleRate = totalWeight === 0 ? 0 : c.cost;
+                      const isDisabled = !c.isAvailable;
+                      
                       return (
                         <label 
                           key={c.id} 
-                          onClick={() => setSelectedCourier(c)}
-                          className={`flex items-center justify-between p-3.5 rounded-xl border-2 cursor-pointer transition-all ${selectedCourier.id === c.id ? 'border-[#017A3E] bg-green-50/20' : 'border-gray-100 hover:border-gray-200'}`}
+                          onClick={() => {
+                            if (!isDisabled) {
+                              setSelectedCourierId(c.id);
+                            }
+                          }}
+                          className={`flex items-start justify-between p-3.5 rounded-xl border-2 transition-all ${
+                            isDisabled 
+                              ? 'opacity-50 bg-gray-50/50 border-gray-100 cursor-not-allowed' 
+                              : selectedCourierId === c.id 
+                                ? 'border-[#017A3E] bg-green-50/20 cursor-pointer' 
+                                : 'border-gray-100 hover:border-gray-200 cursor-pointer'
+                          }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-start gap-3">
                             <input 
                               type="radio" 
                               name="courier" 
-                              checked={selectedCourier.id === c.id} 
-                              onChange={() => setSelectedCourier(c)}
-                              className="accent-[#017A3E]"
+                              disabled={isDisabled}
+                              checked={selectedCourierId === c.id} 
+                              onChange={() => {
+                                if (!isDisabled) {
+                                  setSelectedCourierId(c.id);
+                                }
+                              }}
+                              className="accent-[#017A3E] mt-0.5"
                             />
                             <div>
-                              <p className="font-bold text-xs text-gray-900">{c.name}</p>
-                              <p className="text-[10px] text-gray-500">{c.service}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-xs text-gray-900">{c.name}</p>
+                                {c.id === 'cleanza_express' && (
+                                  <span className="text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+                                    Instant Cikarang
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-gray-500 mt-0.5">{c.service}</p>
+                              {c.details && (
+                                <p className="text-[9px] text-gray-400 mt-0.5 italic">{c.details}</p>
+                              )}
                             </div>
                           </div>
-                          <span className="font-bold text-xs text-[#017A3E]">
-                            {sampleRate === 0 ? 'FREE (Service)' : `Rp ${sampleRate?.toLocaleString('id-ID')}`}
-                          </span>
+                          <div className="text-right">
+                            <span className="font-bold text-xs text-[#017A3E] block">
+                              {sampleRate === 0 ? 'FREE (Service)' : `Rp ${sampleRate?.toLocaleString('id-ID')}`}
+                            </span>
+                          </div>
                         </label>
                       );
                     })}

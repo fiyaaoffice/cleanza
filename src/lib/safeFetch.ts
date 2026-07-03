@@ -551,6 +551,42 @@ async function handleApiFallback(urlStr: string, init?: RequestInit): Promise<Re
     }), { status: 200 });
   }
 
+  // 7. Shipping Calculation Endpoints
+  if (path === '/api/shipping/calculate') {
+    const { origin, destination, weightGrams } = body || {};
+    if (!destination) {
+      return new Response(JSON.stringify({ error: "Alamat pengiriman harus diisi" }), { status: 400 });
+    }
+
+    const normalizedDestination = destination.toLowerCase();
+    const isCikarang = normalizedDestination.includes("cikarang");
+
+    // Realistic calculation simulating distance to Cikarang
+    let distanceKm = 35.5;
+    if (isCikarang) {
+      const hash = destination.length;
+      distanceKm = 30 + (hash % 15) + (hash % 10) / 10;
+    } else {
+      distanceKm = 45.0 + (destination.length % 10);
+    }
+    const minutes = Math.round(distanceKm * 1.5);
+    const durationText = `${minutes} Menit`;
+
+    const cleanzaExpressCost = isCikarang ? Math.max(10000, Math.round(distanceKm * 2500)) : 0;
+    const weightKg = Math.max(1, Math.ceil((weightGrams || 1000) / 1000));
+    const spxCost = 9000 * weightKg;
+
+    return new Response(JSON.stringify({
+      success: true,
+      isCikarang,
+      distanceKm: parseFloat(distanceKm.toFixed(1)),
+      durationText,
+      source: "Simulation (Local Storage Bypass)",
+      cleanzaExpressCost,
+      spxCost
+    }), { status: 200 });
+  }
+
   // Default Fallback
   return new Response(JSON.stringify({ error: "Bypass API Route Not Found" }), { status: 404 });
 }
