@@ -3,6 +3,7 @@ import { X, ShieldCheck, AlertCircle, Sparkles, LogIn, UserPlus } from 'lucide-r
 import { User } from '../types';
 import Logo from './Logo';
 import { signInWithGoogle, registerWithEmail, loginWithEmail } from '../lib/firebase';
+import { safeFetch } from '../lib/safeFetch';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
       }
 
       // 2. Sync with Express Backend database
-      const response = await fetch('/api/auth/google-login', {
+      const response = await safeFetch('/api/auth/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -90,7 +91,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
     setSuccessMsg('');
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/google-login', {
+      const response = await safeFetch('/api/auth/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -161,7 +162,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
         }
 
         // 2. Sync / create on our Express server database
-        const response = await fetch('/api/auth/register', {
+        const response = await safeFetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -206,7 +207,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
         }
 
         // 2. Authenticate / sync on local database
-        const response = await fetch('/api/auth/login', {
+        const response = await safeFetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, ShieldCheck, MapPin, Plus, Minus, AlertCircle, Sparkles } from 'lucide-react';
 import { CartItem, Order, User, AdminSettings } from '../types';
+import { safeFetch } from '../lib/safeFetch';
 
 interface CartModalProps {
   isOpen: boolean;
@@ -151,7 +152,7 @@ export default function CartModal({
     };
 
     try {
-      const response = await fetch('/api/orders', {
+      const response = await safeFetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order: newOrderPayload })

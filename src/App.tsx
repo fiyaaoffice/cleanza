@@ -11,6 +11,7 @@ import { Product, CartItem, Order, User, SystemNotification, AdminSettings } fro
 import { Sparkles, MessageSquare, ShieldCheck, Heart } from 'lucide-react';
 import { INITIAL_PRODUCTS, INITIAL_ADMIN_SETTINGS } from './mockData';
 import { logOutFirebase } from './lib/firebase';
+import { safeFetch } from './lib/safeFetch';
 
 export default function App() {
   // Authentication & Users
@@ -138,7 +139,7 @@ export default function App() {
   // API Call Helpers
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products');
+      const res = await safeFetch('/api/products');
       if (res.ok) {
         const data = await res.json();
         setProducts(data);
@@ -153,7 +154,7 @@ export default function App() {
     try {
       // If admin, we fetch all orders. If customer, we filter by userId
       const url = currentUser.role === 'admin' ? '/api/orders' : `/api/orders?userId=${currentUser.id}`;
-      const res = await fetch(url);
+      const res = await safeFetch(url);
       if (res.ok) {
         const data = await res.json();
         setOrders(data);
@@ -165,7 +166,7 @@ export default function App() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await safeFetch('/api/settings');
       if (res.ok) {
         const data = await res.json();
         setAdminSettings(data);
@@ -177,7 +178,7 @@ export default function App() {
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch('/api/notifications');
+      const res = await safeFetch('/api/notifications');
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
@@ -189,7 +190,7 @@ export default function App() {
 
   const handleMarkNotificationsRead = async () => {
     try {
-      const res = await fetch('/api/notifications/read-all', { method: 'POST' });
+      const res = await safeFetch('/api/notifications/read-all', { method: 'POST' });
       if (res.ok) {
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       }

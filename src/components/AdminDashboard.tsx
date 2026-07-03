@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Product, Order, SystemNotification, AdminSettings, User } from '../types';
 import Logo from './Logo';
+import { safeFetch } from '../lib/safeFetch';
 
 interface AdminDashboardProps {
   isOpen: boolean;
@@ -122,7 +123,7 @@ export default function AdminDashboard({
     setActionLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await safeFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: adminUsername, password: adminPassword })
@@ -164,7 +165,7 @@ export default function AdminDashboard({
     setActionLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await safeFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -242,7 +243,7 @@ export default function AdminDashboard({
     };
 
     try {
-      const response = await fetch(url, {
+      const response = await safeFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -300,7 +301,7 @@ export default function AdminDashboard({
     };
 
     try {
-      const response = await fetch(`/api/products/${id}?pin=030507`, {
+      const response = await safeFetch(`/api/products/${id}?pin=030507`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: '030507' })
@@ -334,7 +335,7 @@ export default function AdminDashboard({
     };
 
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await safeFetch(`/api/orders/${orderId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -363,7 +364,7 @@ export default function AdminDashboard({
     setSettingsStatus('');
 
     try {
-      const response = await fetch('/api/settings', {
+      const response = await safeFetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1222,7 +1223,7 @@ export default function AdminDashboard({
                           onClick={async () => {
                             setSettingsStatus('Memulai sinkronisasi ulang gateway payment DANA...');
                             try {
-                              const res = await fetch('/api/payments/sync', { method: 'POST' });
+                              const res = await safeFetch('/api/payments/sync', { method: 'POST' });
                               if (res.ok) {
                                 const data = await res.json();
                                 if (data.synchronizedCount > 0) {
