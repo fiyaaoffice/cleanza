@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, ShieldCheck, MapPin, Plus, Minus, AlertCircle, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Trash2, ShieldCheck, MapPin, Plus, Minus, AlertCircle, Sparkles, Map as MapIcon, Navigation } from 'lucide-react';
 import { CartItem, Order, User, AdminSettings } from '../types';
 import { safeFetch } from '../lib/safeFetch';
 
@@ -34,10 +34,18 @@ export default function CartModal({
 }: CartModalProps) {
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'shipping' | 'payment' | 'success'>('cart');
   const [address, setAddress] = useState('');
+  const [addressDetail, setAddressDetail] = useState('');
   const [customerName, setCustomerName] = useState(currentUser?.name || '');
   const [customerPhone, setCustomerPhone] = useState(currentUser?.phone || '');
   const [notes, setNotes] = useState('');
   
+  // Google Maps States & Refs
+  const [gmapsLoaded, setGmapsLoaded] = useState(false);
+  const autocompleteInputRef = useRef<HTMLInputElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [markerInstance, setMarkerInstance] = useState<any>(null);
+
   // Dynamic Courier States
   const [selectedCourierId, setSelectedCourierId] = useState<'cleanza_express' | 'spx'>('spx');
   const [shippingLoading, setShippingLoading] = useState(false);
@@ -50,6 +58,145 @@ export default function CartModal({
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Google Maps SDK Loader
+  const googleMapsKey = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
+
+  useEffect(() => {
+    if (isOpen && checkoutStep === 'shipping' && googleMapsKey) {
+      const loadScript = () => {
+        if ((window as any).google && (window as any).google.maps) {
+          setGmapsLoaded(true);
+          return;
+        }
+        const existingScript = document.getElementById('google-maps-sdk');
+        if (existingScript) {
+          setGmapsLoaded(true);
+          return;
+        }
+        const script = document.createElement('script');
+        script.id = 'google-maps-sdk';
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsKey}&libraries=places&language=id&region=ID`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          setGmapsLoaded(true);
+        };
+        script.onerror = () => {
+          console.error("Failed to load Google Maps SDK");
+        };
+        document.head.appendChild(script);
+      };
+
+      loadScript();
+    }
+  }, [isOpen, checkoutStep, googleMapsKey]);
+
+  // Google Maps Autocomplete and Interactive Map Sync
+  useEffect(() => {
+    if (!gmapsLoaded || !autocompleteInputRef.current) return;
+
+    try {
+      const autocomplete = new (window as any).google.maps.places.Autocomplete(autocompleteInputRef.current, {
+        componentRestrictions: { country: 'id' },
+        fields: ['formatted_address', 'geometry', 'name'],
+      });
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) {
+          console.log("No geometry for this place");
+          return;
+        }
+
+        const formattedAddress = place.formatted_address || place.name || '';
+        setAddress(formattedAddress);
+
+        // Handle map centering and marker placement
+        if (mapInstance && markerInstance) {
+          mapInstance.setCenter(place.geometry.location);
+          mapInstance.setZoom(16);
+          markerInstance.setPosition(place.geometry.location);
+          markerInstance.setVisible(true);
+        } else if (mapContainerRef.current) {
+          const map = new (window as any).google.maps.Map(mapContainerRef.current, {
+            center: place.geometry.location,
+            zoom: 16,
+            disableDefaultUI: true,
+            zoomControl: true,
+            gestureHandling: 'cooperative'
+          });
+          const marker = new (window as any).google.maps.Marker({
+            position: place.geometry.location,
+            map: map,
+            draggable: true
+          });
+
+          marker.addListener('dragend', () => {
+            const pos = marker.getPosition();
+            if (pos) {
+              const geocoder = new (window as any).google.maps.Geocoder();
+              geocoder.geocode({ location: pos }, (results: any, status: any) => {
+                if (status === 'OK' && results[0]) {
+                  setAddress(results[0].formatted_address);
+                }
+              });
+            }
+          });
+
+          setMapInstance(map);
+          setMarkerInstance(marker);
+        }
+      });
+
+      return () => {
+        (window as any).google?.maps?.event?.clearInstanceListeners(autocomplete);
+      };
+    } catch (err) {
+      console.error("Error setting up Autocomplete:", err);
+    }
+  }, [gmapsLoaded, mapInstance, markerInstance]);
+
+  // Map Initialization default (centered in Cikarang)
+  useEffect(() => {
+    if (!gmapsLoaded || !mapContainerRef.current || mapInstance) return;
+
+    try {
+      const defaultCenter = { lat: -6.2625, lng: 107.1167 };
+      
+      const map = new (window as any).google.maps.Map(mapContainerRef.current, {
+        center: defaultCenter,
+        zoom: 13,
+        disableDefaultUI: true,
+        zoomControl: true,
+        gestureHandling: 'cooperative'
+      });
+
+      const marker = new (window as any).google.maps.Marker({
+        position: defaultCenter,
+        map: map,
+        visible: false,
+        draggable: true
+      });
+
+      marker.addListener('dragend', () => {
+        const pos = marker.getPosition();
+        if (pos) {
+          const geocoder = new (window as any).google.maps.Geocoder();
+          geocoder.geocode({ location: pos }, (results: any, status: any) => {
+            if (status === 'OK' && results[0]) {
+              setAddress(results[0].formatted_address);
+            }
+          });
+        }
+      });
+
+      setMapInstance(map);
+      setMarkerInstance(marker);
+    } catch (err) {
+      console.error("Error setting up map:", err);
+    }
+  }, [gmapsLoaded]);
 
   // Sync user info
   useEffect(() => {
@@ -196,7 +343,7 @@ export default function CartModal({
       customerName,
       customerPhone,
       customerEmail: currentUser?.email || '',
-      shippingAddress: address,
+      shippingAddress: addressDetail ? `${address} (${addressDetail})` : address,
       items: cartItems,
       subtotal,
       shippingCost,
@@ -254,6 +401,7 @@ export default function CartModal({
     setPaymentProofUrl('');
     setCreatedOrder(null);
     setAddress('');
+    setAddressDetail('');
     setNotes('');
   };
 
@@ -402,15 +550,62 @@ export default function CartModal({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1">Alamat Lengkap Pengiriman</label>
-                  <textarea
-                    required
-                    rows={3}
-                    placeholder="Nama jalan, Nomor rumah, RT/RW, Kecamatan, Kota/Kabupaten, Kode Pos"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                    <Navigation className="w-3.5 h-3.5 text-[#017A3E]" />
+                    Cari Alamat dengan Google Maps
+                  </label>
+                  <div className="relative">
+                    <input
+                      ref={autocompleteInputRef}
+                      type="text"
+                      required
+                      placeholder={gmapsLoaded ? "Ketik nama jalan, perumahan, atau gedung..." : "Memuat data Google Maps..."}
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full glass-input pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                    />
+                    <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-red-500 animate-pulse" />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1 italic">
+                    Pilih alamat dari rekomendasi daftar pilihan Google untuk akurasi pengiriman yang maksimal.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1">
+                    Detail Tambahan (No. Rumah, Patokan, RT/RW)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: No. 25, Blok C, Pagar Hitam, Samping Alfamart"
+                    value={addressDetail}
+                    onChange={(e) => setAddressDetail(e.target.value)}
                     className="w-full glass-input px-4 py-2.5 rounded-xl text-sm"
                   />
+                </div>
+
+                {/* Interactive Map Visualizer */}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                      <MapIcon className="w-3 h-3 text-[#017A3E]" />
+                      Pratinjau Koordinat Alamat
+                    </label>
+                    <span className="text-[9px] text-[#017A3E] font-semibold bg-green-50 px-2 py-0.5 rounded-full">
+                      Peta Interaktif
+                    </span>
+                  </div>
+                  <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm relative">
+                    <div 
+                      ref={mapContainerRef} 
+                      className="w-full h-40 bg-gray-50"
+                      style={{ minHeight: '160px' }}
+                    />
+                    <div className="absolute bottom-2 left-2 right-2 bg-white/95 backdrop-blur-sm px-2.5 py-1.5 rounded-xl text-[9px] text-gray-600 font-medium shadow-sm flex items-center gap-1.5 border border-gray-100">
+                      <span className="w-1.5 h-1.5 bg-[#017A3E] rounded-full animate-ping"></span>
+                      <span>Geser pin merah di peta untuk menyempurnakan lokasi pengiriman Anda</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Courier Selection Option */}
