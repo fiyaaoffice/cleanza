@@ -10,6 +10,7 @@ import NotificationToast from './components/NotificationToast';
 import { Product, CartItem, Order, User, SystemNotification, AdminSettings } from './types';
 import { Sparkles, MessageSquare, ShieldCheck, Heart } from 'lucide-react';
 import { INITIAL_PRODUCTS, INITIAL_ADMIN_SETTINGS } from './mockData';
+import { logOutFirebase } from './lib/firebase';
 
 export default function App() {
   // Authentication & Users
@@ -239,7 +240,12 @@ export default function App() {
     localStorage.setItem('cleanza_user', JSON.stringify(user));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logOutFirebase();
+    } catch (e) {
+      console.error("Gagal keluar dari Firebase Auth", e);
+    }
     setCurrentUser(null);
     localStorage.removeItem('cleanza_user');
     setIsAdminOpen(false);

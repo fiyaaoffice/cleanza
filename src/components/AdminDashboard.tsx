@@ -487,7 +487,7 @@ export default function AdminDashboard({
                   <Lock className="w-4 h-4" />
                   Buka Kunci Panel
                 </button>
-                <p className="text-[10px] text-gray-400 text-center">PIN default: 030507</p>
+                <p className="text-[10px] text-gray-400 text-center">Hubungi owner untuk mendapatkan PIN</p>
               </form>
             )}
 
@@ -588,7 +588,7 @@ export default function AdminDashboard({
                     onChange={(e) => setRegMasterPin(e.target.value)}
                     className="w-full bg-white border border-amber-300 focus:border-[#017A3E] focus:ring-1 focus:ring-[#017A3E] px-3 py-1 rounded-lg text-sm font-bold text-center tracking-widest"
                   />
-                  <span className="text-[9px] text-amber-600 block leading-tight">PIN 030507 diperlukan untuk mendaftarkan kredensial administrator baru secara aman.</span>
+                  <span className="text-[9px] text-amber-600 block leading-tight">PIN master diperlukan untuk mendaftarkan kredensial administrator baru secara aman.</span>
                 </div>
 
                 <button

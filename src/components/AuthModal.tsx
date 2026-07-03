@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Sparkles, AlertCircle, Mail, ArrowRight, UserCheck, HelpCircle } from 'lucide-react';
+import { X, ShieldCheck, AlertCircle, HelpCircle, ArrowRight } from 'lucide-react';
 import { User } from '../types';
 import Logo from './Logo';
+import { signInWithGoogle } from '../lib/firebase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -10,28 +11,33 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModalProps) {
-  const [customMode, setCustomMode] = useState(false);
-  const [customEmail, setCustomEmail] = useState('');
-  const [customName, setCustomName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [inputVal, setInputVal] = useState('');
+  const [passwordVal, setPasswordVal] = useState('');
 
   if (!isOpen) return null;
 
-  // Handles authenticating via the Express server
-  const handleAuthenticate = async (email: string, name: string) => {
+  const handleGoogleAuth = async () => {
     setError('');
     setLoading(true);
-
     try {
+      // 1. Sign in with Firebase Client-side SDK
+      const firebaseUser = await signInWithGoogle();
+      
+      if (!firebaseUser || !firebaseUser.email) {
+        throw new Error('Gagal mendapatkan profil email dari Google.');
+      }
+
+      // 2. Synchronize with our Express Server to handle role assignment & session
       const response = await fetch('/api/auth/google-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: email.trim(),
-          name: name.trim() || 'User Google',
-          googleId: 'g-' + Math.floor(10000000 + Math.random() * 90000000),
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name.trim() || email)}`
+          email: firebaseUser.email,
+          name: firebaseUser.displayName || 'Pengguna Cleanza',
+          avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(firebaseUser.email)}`,
+          googleId: firebaseUser.uid
         }),
       });
 
@@ -39,195 +45,171 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
       if (response.ok && data.success) {
         onLoginSuccess(data.user);
         onClose();
-        // Reset state
-        setCustomMode(false);
-        setCustomEmail('');
-        setCustomName('');
       } else {
-        setError(data.error || 'Gagal masuk menggunakan Google.');
+        setError(data.error || 'Gagal menyinkronkan akun dengan server.');
       }
-    } catch (err) {
-      setError('Kesalahan koneksi ke server. Pastikan server aktif.');
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || 'Gagal masuk menggunakan Google. Pastikan koneksi internet stabil.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCustomSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customEmail) {
-      setError('Email Google wajib diisi.');
-      return;
-    }
-    if (!customEmail.includes('@')) {
-      setError('Format email Google tidak valid.');
-      return;
-    }
-    const derivedName = customName.trim() || customEmail.split('@')[0];
-    handleAuthenticate(customEmail, derivedName);
+    // Since login/register is Google-only, any attempt to login via form immediately routes to Google Sign-In!
+    handleGoogleAuth();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#121212]/85 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="relative w-full max-w-md bg-white rounded-[32px] overflow-hidden shadow-2xl border border-gray-100 flex flex-col animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-0 md:p-4 overflow-y-auto">
+      <div className="relative w-full max-w-5xl bg-[#F5F5F5] md:rounded-[20px] overflow-hidden shadow-2xl flex flex-col min-h-screen md:min-h-0 animate-fade-in">
         
-        {/* Colorful top bar */}
-        <div className="h-2 w-full bg-gradient-to-r from-[#017A3E] via-[#FFD800] to-[#017A3E]"></div>
-        
-        {/* Close Button */}
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600 cursor-pointer active:scale-95 duration-100"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* UPPER HEADER: LOG IN + HELP (Matches Shopee Logo Header) */}
+        <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Logo size="sm" showText={false} />
+            <span className="text-xl font-bold text-[#017A3E]">Cleanza</span>
+            <span className="text-lg text-gray-300 font-light">|</span>
+            <span className="text-lg font-medium text-gray-800">Log In</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <a 
+              href="https://wa.me/6281122334455" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-xs text-[#017A3E] hover:underline font-semibold"
+            >
+              Butuh bantuan?
+            </a>
+            <button 
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
-        <div className="p-8 max-h-[90vh] overflow-y-auto">
+        {/* MAIN BODY: SPLIT VIEW (Matches screenshot background orange layout) */}
+        <div className="flex-1 bg-gradient-to-r from-[#017A3E] to-[#016533] p-6 md:p-12 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
           
-          {/* Logo Brand Header */}
-          <div className="text-center mb-6">
-            <div className="flex justify-center mb-4">
-              <Logo size="md" showText={false} />
+          {/* LEFT SIDE: BRAND HERO (Matches Shopee bag hero) */}
+          <div className="hidden md:flex flex-col items-center text-center text-white max-w-sm">
+            <div className="w-48 h-48 rounded-[36px] bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-lg mb-6 animate-pulse">
+              <Logo size="xl" showText={false} />
             </div>
-            <h3 className="text-xl font-extrabold font-sans text-gray-900 tracking-tight flex items-center justify-center gap-1.5">
-              <span>Google Account Sign-In</span>
-              <Sparkles className="w-5 h-5 text-[#017A3E] animate-pulse" />
-            </h3>
-            <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-              Daftar dan masuk ke Cleanza secara instan hanya menggunakan akun Google resmi Anda.
+            <h2 className="text-3xl font-extrabold font-sans tracking-tight mb-2">Cleanza</h2>
+            <p className="text-lg font-medium text-yellow-300 tracking-wide font-sans">
+              Lebih Hemat Lebih Cepat
+            </p>
+            <p className="text-xs text-green-100 mt-4 max-w-xs leading-relaxed">
+              Solusi laundry premium, pembersih sepatu, kasur, AC, dan deep cleaning rumah dalam satu platform.
             </p>
           </div>
 
-          {error && (
-            <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-center gap-2 mb-5 border border-red-100">
-              <AlertCircle className="w-4.5 h-4.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* 1. MOCK ACCOUNTS LIST (GOOGLE ONE TAP AUTH FEEL) */}
-          {!customMode ? (
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Pilih Akun Google Anda</span>
-              
-              {/* Account 1: Muhammad Rafiq (Administrator) */}
-              <button
-                onClick={() => handleAuthenticate('rafiqradian797@gmail.com', 'Muhammad Rafiq')}
-                disabled={loading}
-                className="w-full text-left p-4 bg-gray-50 hover:bg-green-50/50 border border-gray-100 hover:border-[#017A3E]/30 rounded-2xl transition-all flex items-center justify-between group cursor-pointer active:scale-[0.99] duration-100"
-              >
-                <div className="flex items-center gap-3">
-                  <img 
-                    src="https://api.dicebear.com/7.x/initials/svg?seed=Muhammad%20Rafiq&backgroundColor=017a3e&textColor=ffffff" 
-                    alt="Muhammad Rafiq Avatar" 
-                    className="w-10 h-10 rounded-full border border-gray-200"
-                  />
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900 group-hover:text-[#017A3E] transition-colors">Muhammad Rafiq</h4>
-                    <p className="text-[11px] text-gray-500">rafiqradian797@gmail.com</p>
-                  </div>
-                </div>
-                <span className="text-[9px] font-extrabold bg-[#FFD800] text-[#121212] px-2 py-1 rounded-md uppercase tracking-wider">
-                  Admin
-                </span>
-              </button>
-
-              {/* Account 2: Customer Demo */}
-              <button
-                onClick={() => handleAuthenticate('budi.santoso@gmail.com', 'Budi Santoso')}
-                disabled={loading}
-                className="w-full text-left p-4 bg-gray-50 hover:bg-green-50/50 border border-gray-100 hover:border-[#017A3E]/30 rounded-2xl transition-all flex items-center justify-between group cursor-pointer active:scale-[0.99] duration-100"
-              >
-                <div className="flex items-center gap-3">
-                  <img 
-                    src="https://api.dicebear.com/7.x/initials/svg?seed=Budi%20Santoso&backgroundColor=ffd800&textColor=121212" 
-                    alt="Budi Santoso Avatar" 
-                    className="w-10 h-10 rounded-full border border-gray-200"
-                  />
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900 group-hover:text-[#017A3E] transition-colors">Budi Santoso</h4>
-                    <p className="text-[11px] text-gray-500">budi.santoso@gmail.com</p>
-                  </div>
-                </div>
-                <span className="text-[9px] font-extrabold bg-gray-200 text-gray-600 px-2 py-1 rounded-md uppercase tracking-wider">
-                  Pelanggan
-                </span>
-              </button>
-
-              {/* Button to show Custom Account Input */}
-              <button
-                onClick={() => setCustomMode(true)}
-                disabled={loading}
-                className="w-full py-3 px-4 border border-dashed border-gray-200 hover:border-[#017A3E] text-gray-500 hover:text-[#017A3E] text-xs font-bold rounded-2xl transition-all text-center flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-              >
-                <Mail className="w-4 h-4" />
-                Gunakan Akun Google Lain
-              </button>
-            </div>
-          ) : (
-            /* 2. CUSTOM EMAIL GOOGLE INPUT FORM */
-            <form onSubmit={handleCustomSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block">Email Google Anda</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="nama@gmail.com"
-                  value={customEmail}
-                  onChange={(e) => setCustomEmail(e.target.value)}
-                  className="w-full glass-input px-4 py-3 rounded-xl text-sm"
-                  disabled={loading}
-                />
+          {/* RIGHT SIDE: AUTH CARD (Matches Shopee white form card) */}
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-gray-100 relative">
+            
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Log In</h3>
+              <div className="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-amber-100 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping"></span>
+                <span>Google Only</span>
               </div>
+            </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block">Nama Lengkap (Opsional)</label>
+            {error && (
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-center gap-2 mb-4 border border-red-100">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleFormSubmit} className="space-y-4">
+              {/* Fake form input fields to match Shopee layout aesthetic */}
+              <div className="space-y-3">
                 <input
                   type="text"
-                  placeholder="Masukkan nama lengkap Anda"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  className="w-full glass-input px-4 py-3 rounded-xl text-sm"
-                  disabled={loading}
+                  placeholder="No. Handphone/Username/Email"
+                  value={inputVal}
+                  onChange={(e) => setInputVal(e.target.value)}
+                  className="w-full border border-gray-200 focus:border-[#017A3E] focus:ring-1 focus:ring-[#017A3E] rounded-md px-4 py-3 text-sm outline-none transition-all"
+                />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={passwordVal}
+                  onChange={(e) => setPasswordVal(e.target.value)}
+                  className="w-full border border-gray-200 focus:border-[#017A3E] focus:ring-1 focus:ring-[#017A3E] rounded-md px-4 py-3 text-sm outline-none transition-all"
                 />
               </div>
 
-              <div className="flex gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCustomMode(false)}
-                  disabled={loading}
-                  className="flex-1 py-3 px-4 border border-gray-200 text-gray-500 hover:bg-gray-50 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
-                >
-                  Kembali
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-[2] bg-[#017A3E] hover:bg-[#016533] disabled:bg-gray-300 text-white py-3 rounded-xl font-bold transition-all text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {loading ? 'Menghubungkan...' : 'Masuk Google'}
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </form>
-          )}
+              {/* LOG IN button - routes directly to Google Sign-In */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#017A3E] hover:bg-[#016533] text-white font-bold text-sm py-3.5 rounded-md transition-all shadow-md active:scale-[0.99] duration-100 cursor-pointer uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                {loading ? 'Menghubungkan...' : 'LOG IN'}
+              </button>
 
-          {/* Info & Terms */}
-          <div className="mt-6 pt-5 border-t border-gray-100 flex flex-col gap-3">
-            <div className="flex gap-2 items-start text-[10px] text-gray-400">
-              <ShieldCheck className="w-4 h-4 text-[#017A3E] shrink-0 mt-0.5" />
-              <p className="leading-normal">
-                Google Single Sign-On (SSO) ini terhubung secara aman langsung ke server Cleanza. Email <span className="font-bold text-gray-600">rafiqradian797@gmail.com</span> dan <span className="font-bold text-gray-600">admin@cleanza.com</span> otomatis mendapat hak akses penuh sebagai <span className="font-bold text-[#017A3E]">Administrator Toko</span>.
-              </p>
+              <div className="flex justify-between text-xs text-gray-400">
+                <span className="hover:text-gray-600 cursor-pointer">Lupa Password?</span>
+                <span className="hover:text-[#017A3E] cursor-pointer font-medium" onClick={handleGoogleAuth}>Masuk via OTP</span>
+              </div>
+
+              {/* OR Separator line */}
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-gray-200"></div>
+                <span className="flex-shrink mx-4 text-gray-400 text-xs font-bold uppercase tracking-wider">ATAU</span>
+                <div className="flex-grow border-t border-gray-200"></div>
+              </div>
+
+              {/* Google Sign-in button */}
+              <button
+                type="button"
+                onClick={handleGoogleAuth}
+                disabled={loading}
+                className="w-full py-3 px-4 border border-gray-200 hover:border-gray-300 rounded-md transition-all flex items-center justify-center gap-3 hover:bg-gray-50 cursor-pointer active:scale-95 text-sm font-semibold text-gray-700"
+              >
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.61c-.28 1.5-.125 2.77-1.4 3.61l3.25 2.52c1.9-1.75 3-4.33 3-7.98z"/>
+                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.25-2.52c-.9.6-2.05.96-3.43.96-2.63 0-4.85-1.78-5.65-4.17l-3.37 2.6c1.65 3.28 5.04 5.54 8.77 5.54z"/>
+                  <path fill="#FBBC05" d="M6.35 15.36c-.2-.6-.32-1.25-.32-1.92s.12-1.32.32-1.92L2.98 8.92C2.07 10.74 1.56 12.81 1.56 15s.51 4.26 1.42 6.08l3.37-2.72z"/>
+                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43C17.95 1.19 15.24 0 12 0 8.27 0 4.88 2.26 3.23 5.54l3.37 2.6c.8-2.39 3.02-4.17 5.65-4.17z"/>
+                </svg>
+                <span>Google</span>
+              </button>
+            </form>
+
+            <div className="mt-8 text-center text-xs text-gray-400 leading-normal">
+              Dengan login, kamu menyetujui <span className="text-orange-500 cursor-pointer hover:underline">Syarat, Ketentuan & Kebijakan</span> dan <span className="text-orange-500 cursor-pointer hover:underline">Kebijakan Privasi</span> Cleanza.
             </div>
-            <div className="flex gap-2 items-center justify-center text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
-              <span>Google Verified App</span>
-              <span>•</span>
-              <span>SHA-256 SSL Secure</span>
+
+            <div className="mt-6 text-center text-xs">
+              <span className="text-gray-400">Baru di Cleanza? </span>
+              <button 
+                onClick={handleGoogleAuth} 
+                disabled={loading}
+                className="text-[#017A3E] hover:underline font-bold"
+              >
+                Daftar Sekarang
+              </button>
             </div>
           </div>
+        </div>
 
+        {/* Info SSL Certification Footer */}
+        <div className="bg-white border-t border-gray-100 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-2.5 text-[11px] text-gray-400">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#017A3E]" />
+            <span>Koneksi Aman Terenkripsi SSL SHA-256</span>
+          </div>
+          <div className="flex gap-4">
+            <span>© {new Date().getFullYear()} Cleanza. All rights reserved.</span>
+          </div>
         </div>
       </div>
     </div>

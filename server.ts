@@ -223,16 +223,33 @@ app.post("/api/auth/google-login", (req, res) => {
   // Determine role
   const isAdminUser = email === "admin@cleanza.com" || email === "rafiqradian797@gmail.com";
 
+  const dbData = loadDb();
+  let user = dbData.users.find(u => u.email === email);
+
+  if (!user) {
+    // Create new Google-linked user
+    user = {
+      id: `google-${googleId ? googleId.slice(-4) : Math.floor(1000 + Math.random() * 9000)}`,
+      name: name || "Pengguna Cleanza",
+      email,
+      phone: "",
+      role: isAdminUser ? "admin" : "customer",
+      avatar: avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(email)}`,
+      verified: true
+    };
+    dbData.users.push(user);
+  } else {
+    // Update existing user properties
+    user.name = name || user.name;
+    user.avatar = avatar || user.avatar;
+    user.role = isAdminUser ? "admin" : user.role;
+  }
+
+  saveDb(dbData);
+
   res.json({
     success: true,
-    user: {
-      id: `google-${googleId ? googleId.slice(-4) : 'user'}`,
-      name: name || "User Google",
-      email,
-      role: isAdminUser ? "admin" : "customer",
-      avatar: avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${name || email}`,
-      verified: true
-    }
+    user
   });
 });
 
