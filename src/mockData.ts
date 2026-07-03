@@ -120,5 +120,5 @@ export const INITIAL_ADMIN_SETTINGS: AdminSettings = {
   danaName: 'Cleanza Laundry & Cleaning Store',
   // QRIS standard simulation string (EMVCo format or mock QR code content)
   qrisUrl: '00020101021126380010ID.CO.DANA.WWW01189360091234567890125204541153033605802ID5922Cleanza Cleaning Shop6007Jakarta61051211162070703A0154041.2',
-  storeAddress: 'Jl. Boulevard Raya Blok CA No. 20, Kelapa Gading, Jakarta Utara 14240'
+  storeAddress: 'RS. karya medika, 1P4MF+4R4, Telagamurni, Kec. Cikarang Bar., Kabupaten Bekasi, Jawa Barat 17530'
 };

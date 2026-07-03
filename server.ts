@@ -136,8 +136,12 @@ function loadDb(): DatabaseSchema {
   const dbData = JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
   if (!dbData.users) {
     dbData.users = [];
-    fs.writeFileSync(DB_FILE, JSON.stringify(dbData, null, 2), "utf8");
   }
+  // Migrate store address to RS. karya medika if it's the old Kelapa Gading address
+  if (dbData.settings && (dbData.settings.storeAddress === 'Jl. Boulevard Raya Blok CA No. 20, Kelapa Gading, Jakarta Utara 14240' || !dbData.settings.storeAddress)) {
+    dbData.settings.storeAddress = 'RS. karya medika, 1P4MF+4R4, Telagamurni, Kec. Cikarang Bar., Kabupaten Bekasi, Jawa Barat 17530';
+  }
+  fs.writeFileSync(DB_FILE, JSON.stringify(dbData, null, 2), "utf8");
   return dbData;
 }
 
@@ -656,62 +660,140 @@ app.post("/api/shipping/calculate", async (req, res) => {
   }
 
   const normalizedDestination = destination.toLowerCase();
-  const isCikarang = normalizedDestination.includes("cikarang");
+  const isCikarang = normalizedDestination.includes("cikarang") || normalizedDestination.includes("telagamurni");
 
-  let distanceKm = 35.5; // Default Cikarang distance estimate
-  let durationText = "45 Menit";
-  let source = "Simulation (No GMaps Key)";
+  const defaultOrigin = "RS. karya medika, 1P4MF+4R4, Telagamurni, Kec. Cikarang Bar., Kabupaten Bekasi, Jawa Barat 17530";
+  const finalOrigin = origin || defaultOrigin;
+
+  let distanceKm = 10.0;
+  let durationText = "20 Menit";
+  let source = "Simulation Heuristic";
 
   const apiKey = process.env.GOOGLE_MAPS_PLATFORM_KEY || "";
 
-  if (isCikarang) {
-    if (apiKey) {
-      try {
-        const originsParam = encodeURIComponent(origin || "Kelapa Gading, Jakarta Utara");
-        const destinationsParam = encodeURIComponent(destination);
-        const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originsParam}&destinations=${destinationsParam}&key=${apiKey}`;
-        
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status === "OK" && data.rows?.[0]?.elements?.[0]?.status === "OK") {
-            const element = data.rows[0].elements[0];
-            const distanceMeters = element.distance.value;
-            const durationSeconds = element.duration.value;
-            
-            distanceKm = distanceMeters / 1000;
-            
-            // Format duration nicely in Indonesian
-            const mins = Math.ceil(durationSeconds / 60);
-            if (mins >= 60) {
-              const hrs = Math.floor(mins / 60);
-              const remainingMins = mins % 60;
-              durationText = `${hrs} Jam ${remainingMins > 0 ? `${remainingMins} Menit` : ""}`;
-            } else {
-              durationText = `${mins} Menit`;
-            }
-            source = "Google Maps API";
+  if (apiKey) {
+    try {
+      const originsParam = encodeURIComponent(finalOrigin);
+      const destinationsParam = encodeURIComponent(destination);
+      const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originsParam}&destinations=${destinationsParam}&key=${apiKey}`;
+      
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === "OK" && data.rows?.[0]?.elements?.[0]?.status === "OK") {
+          const element = data.rows[0].elements[0];
+          const distanceMeters = element.distance.value;
+          const durationSeconds = element.duration.value;
+          
+          distanceKm = distanceMeters / 1000;
+          
+          // Format duration nicely in Indonesian
+          const mins = Math.ceil(durationSeconds / 60);
+          if (mins >= 60) {
+            const hrs = Math.floor(mins / 60);
+            const remainingMins = mins % 60;
+            durationText = `${hrs} Jam ${remainingMins > 0 ? `${remainingMins} Menit` : ""}`;
+          } else {
+            durationText = `${mins} Menit`;
           }
+          source = "Google Maps API";
         }
-      } catch (err) {
-        console.error("Error calling Google Maps API server-side:", err);
       }
-    } else {
-      const hash = destination.length;
-      distanceKm = 30 + (hash % 15) + (hash % 10) / 10;
-      const minutes = Math.round(distanceKm * 1.5);
-      durationText = `${minutes} Menit`;
+    } catch (err) {
+      console.error("Error calling Google Maps API server-side:", err);
     }
-  } else {
-    // If not in Cikarang, provide a general simulation for distance
-    distanceKm = 45.0 + (destination.length % 10);
-    const minutes = Math.round(distanceKm * 1.5);
-    durationText = `${minutes} Menit`;
   }
 
-  const cleanzaExpressCost = isCikarang ? Math.max(10000, Math.round(distanceKm * 2500)) : 0;
+  // Fallback heuristic simulation if Google Maps is unavailable or failed
+  if (source !== "Google Maps API") {
+    // Generate deterministic values based on address string
+    let hash = 0;
+    for (let i = 0; i < destination.length; i++) {
+      hash = (hash << 5) - hash + destination.charCodeAt(i);
+      hash |= 0;
+    }
+    hash = Math.abs(hash);
+
+    if (isCikarang) {
+      distanceKm = 2.5 + (hash % 10) + (hash % 10) / 10; // 2.5 to 13.4 km
+      const minutes = Math.round(distanceKm * 1.8) + 5;
+      durationText = `${minutes} Menit`;
+    } else if (normalizedDestination.includes("bekasi")) {
+      distanceKm = 15.0 + (hash % 12); // 15 to 26 km
+      const minutes = Math.round(distanceKm * 1.6);
+      durationText = `${minutes} Menit`;
+    } else if (
+      normalizedDestination.includes("jakarta") || 
+      normalizedDestination.includes("depok") || 
+      normalizedDestination.includes("bogor") || 
+      normalizedDestination.includes("tangerang") || 
+      normalizedDestination.includes("karawang")
+    ) {
+      distanceKm = 25.0 + (hash % 35); // 25 to 59 km
+      const minutes = Math.round(distanceKm * 1.5);
+      durationText = `${minutes} Menit`;
+    } else if (
+      normalizedDestination.includes("bandung") || 
+      normalizedDestination.includes("purwakarta") || 
+      normalizedDestination.includes("subang") || 
+      normalizedDestination.includes("cianjur") || 
+      normalizedDestination.includes("sukabumi")
+    ) {
+      distanceKm = 70.0 + (hash % 80); // 70 to 149 km
+      const minutes = Math.round(distanceKm * 1.4);
+      if (minutes >= 60) {
+        durationText = `${Math.floor(minutes / 60)} Jam ${minutes % 60} Menit`;
+      } else {
+        durationText = `${minutes} Menit`;
+      }
+    } else if (
+      normalizedDestination.includes("semarang") || 
+      normalizedDestination.includes("cirebon") || 
+      normalizedDestination.includes("jogja") || 
+      normalizedDestination.includes("yogyakarta") || 
+      normalizedDestination.includes("solo") || 
+      normalizedDestination.includes("jateng") || 
+      normalizedDestination.includes("diy")
+    ) {
+      distanceKm = 200.0 + (hash % 250); // 200 to 449 km
+      const hours = Math.ceil(distanceKm / 60);
+      durationText = `${hours} Jam`;
+    } else if (
+      normalizedDestination.includes("surabaya") || 
+      normalizedDestination.includes("malang") || 
+      normalizedDestination.includes("sidoarjo") || 
+      normalizedDestination.includes("jatim")
+    ) {
+      distanceKm = 600.0 + (hash % 200); // 600 to 799 km
+      const hours = Math.ceil(distanceKm / 65);
+      durationText = `${hours} Jam`;
+    } else {
+      // Outer island
+      distanceKm = 850.0 + (hash % 1200); // 850 to 2049 km
+      const hours = Math.ceil(distanceKm / 70);
+      durationText = `${hours} Jam`;
+    }
+  }
+
+  // Cleanza Express is strictly Rp 1,000 per km and exclusive to Cikarang
+  const cleanzaExpressCost = isCikarang ? Math.max(5000, Math.round(distanceKm * 1000)) : 0;
+
+  // SPX (Shopee Xpress) rates based on regional distance brackets
+  let spxBaseRatePerKg = 9000;
+  if (distanceKm < 15) {
+    spxBaseRatePerKg = 9000; // Local
+  } else if (distanceKm < 60) {
+    spxBaseRatePerKg = 11000; // Jabodetabek
+  } else if (distanceKm < 180) {
+    spxBaseRatePerKg = 14000; // West Java regional
+  } else if (distanceKm < 800) {
+    spxBaseRatePerKg = 18000; // Java/Bali interprovincial
+  } else {
+    spxBaseRatePerKg = 30000; // Outer islands / Remote
+  }
+
   const weightKg = Math.max(1, Math.ceil((weightGrams || 1000) / 1000));
-  const spxCost = 9000 * weightKg;
+  const spxCost = spxBaseRatePerKg * weightKg;
 
   res.json({
     success: true,
