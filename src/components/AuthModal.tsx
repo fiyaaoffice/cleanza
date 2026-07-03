@@ -49,8 +49,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
         setError(data.error || 'Gagal menyinkronkan akun dengan server.');
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err?.message || 'Gagal masuk menggunakan Google. Pastikan koneksi internet stabil.');
+      console.error("Auth error details:", err);
+      if (err?.code === 'auth/popup-closed-by-user' || err?.message?.includes('popup-closed-by-user')) {
+        setError('Jendela masuk Google ditutup sebelum selesai. Silakan klik kembali tombol login dan selesaikan login di jendela popup Google yang terbuka.');
+      } else if (err?.code === 'auth/cancelled-popup-request') {
+        setError('Proses masuk Google dibatalkan karena ada permintaan baru. Silakan coba lagi.');
+      } else if (err?.code === 'auth/popup-blocked' || err?.message?.includes('popup-blocked')) {
+        setError('Popup masuk terblokir oleh browser Anda. Mohon izinkan popup untuk situs ini atau klik tombol "Open in New Tab" di kanan atas preview AI Studio.');
+      } else {
+        const errorMsg = err?.message || err?.toString() || '';
+        setError(`Gagal masuk menggunakan Google: ${errorMsg}. Silakan coba klik tombol login kembali.`);
+      }
     } finally {
       setLoading(false);
     }
@@ -121,9 +130,16 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex items-center gap-2 mb-4 border border-red-100">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold flex flex-col gap-1 mb-4 border border-red-100">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+                {(error.includes('ditutup') || error.includes('terblokir') || error.includes('Gagal')) && (
+                  <p className="text-[11px] font-normal text-red-500 mt-1 pl-6 leading-relaxed">
+                    <strong>Tips Frame Preview:</strong> Jika popup masuk Google terblokir atau ditutup otomatis oleh browser di dalam frame preview, mohon klik tombol <strong>"Open in New Tab"</strong> di kanan atas halaman AI Studio ini untuk membuka aplikasi di tab penuh, lalu masuk kembali dengan aman.
+                  </p>
+                )}
               </div>
             )}
 
