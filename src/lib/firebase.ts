@@ -5,6 +5,9 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
   User as FirebaseUser
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -32,6 +35,31 @@ export const signInWithGoogle = async () => {
     return result.user;
   } catch (error) {
     console.error("Firebase Google Sign-In Error:", error);
+    throw error;
+  }
+};
+
+// Email/Password Register helper
+export const registerWithEmail = async (email: string, pass: string, name: string) => {
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(result.user, {
+      displayName: name
+    });
+    return result.user;
+  } catch (error) {
+    console.error("Firebase Email Register Error:", error);
+    throw error;
+  }
+};
+
+// Email/Password Login helper
+export const loginWithEmail = async (email: string, pass: string) => {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, pass);
+    return result.user;
+  } catch (error) {
+    console.error("Firebase Email Login Error:", error);
     throw error;
   }
 };
