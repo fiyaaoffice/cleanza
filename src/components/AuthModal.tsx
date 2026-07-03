@@ -141,8 +141,21 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
           return;
         }
 
-        // 1. Register user on Firebase Authentication
-        const fbUser = await registerWithEmail(emailVal, passwordVal, nameVal);
+        let fbUser = null;
+        let isFirebaseOk = false;
+        try {
+          // 1. Register user on Firebase Authentication
+          fbUser = await registerWithEmail(emailVal, passwordVal, nameVal);
+          isFirebaseOk = true;
+        } catch (fbErr: any) {
+          console.warn('Firebase register error (using fallback database):', fbErr);
+          // If the email is already in use in Firebase, check if it's fine, otherwise throw to general catch if it's crucial
+          if (fbErr?.code === 'auth/email-already-in-use') {
+            setError('Email ini sudah terdaftar di Firebase Auth. Silakan masuk akun.');
+            setLoading(false);
+            return;
+          }
+        }
 
         // 2. Sync / create on our Express server database
         const response = await fetch('/api/auth/register', {
@@ -159,13 +172,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
 
         const data = await response.json();
         if (response.ok && data.success) {
-          setSuccessMsg('Pendaftaran Firebase & Server Berhasil! Menyinkronkan masuk...');
+          setSuccessMsg(
+            isFirebaseOk 
+              ? 'Pendaftaran Berhasil! Akun terdaftar di Firebase & Server.' 
+              : 'Pendaftaran Berhasil! (Disimpan langsung di database server).'
+          );
           setTimeout(() => {
             onLoginSuccess(data.user);
             onClose();
           }, 1200);
         } else {
-          setError(data.error || 'Firebase sukses, namun gagal sinkronisasi database lokal.');
+          setError(data.error || 'Gagal menyimpan pendaftaran di database server.');
         }
 
       } else {
@@ -176,8 +193,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
           return;
         }
 
-        // 1. Login with Firebase Authentication
-        await loginWithEmail(emailVal, passwordVal);
+        let isFirebaseOk = false;
+        try {
+          // 1. Login with Firebase Authentication
+          await loginWithEmail(emailVal, passwordVal);
+          isFirebaseOk = true;
+        } catch (fbErr: any) {
+          console.warn('Firebase login error (using fallback database):', fbErr);
+        }
 
         // 2. Authenticate / sync on local database
         const response = await fetch('/api/auth/login', {
@@ -197,14 +220,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
             onClose();
           }, 1000);
         } else {
-          setError(data.error || 'Password atau email salah pada database.');
+          setError(data.error || 'Email atau password salah pada database.');
         }
       }
     } catch (err: any) {
       console.error(err);
-      let localizedError = err?.message || 'Gagal terhubung ke Firebase Auth.';
+      let localizedError = err?.message || 'Gagal terhubung ke server.';
       if (err?.code === 'auth/email-already-in-use') {
-        localizedError = 'Email ini sudah terdaftar di Firebase Auth. Silakan masuk akun.';
+        localizedError = 'Email ini sudah terdaftar. Silakan masuk akun.';
       } else if (err?.code === 'auth/weak-password') {
         localizedError = 'Password terlalu lemah. Minimal 6 karakter.';
       } else if (err?.code === 'auth/invalid-email') {
@@ -219,12 +242,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 md:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto">
       {/* Container - Compact sizing & Elegant borders (No absolute full-screen height on desktop) */}
-      <div className="relative w-full max-w-4xl bg-[#F5F5F5] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-fade-in max-h-[92vh] md:max-h-[85vh]">
+      <div className="relative w-full max-w-2xl bg-[#F5F5F5] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-fade-in max-h-[96vh] sm:max-h-[90vh] md:max-h-[85vh]">
         
         {/* UPPER HEADER: LOG IN + HELP (Responsive spacing, no overflow) */}
-        <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shrink-0">
+        <div className="bg-white border-b border-gray-100 px-3.5 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Logo size="sm" showText={false} />
             <span className="text-base font-extrabold text-[#017A3E] tracking-tight">Cleanza</span>
@@ -252,24 +275,24 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
         </div>
 
         {/* MAIN BODY: SPLIT VIEW (Compact responsive margins, auto scroll if height is constrained) */}
-        <div className="flex-1 overflow-y-auto bg-gradient-to-r from-[#017A3E] to-[#016533] p-4 md:p-8 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10">
+        <div className="flex-1 overflow-y-auto bg-gradient-to-r from-[#017A3E] to-[#016533] p-3 sm:p-4 md:p-6 flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
           
           {/* LEFT SIDE: BRAND HERO (Hidden on mobile, sleek and responsive on desktop) */}
-          <div className="hidden md:flex flex-col items-center text-center text-white max-w-xs shrink-0">
-            <div className="w-28 h-28 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-md mb-4">
-              <Logo size="lg" showText={false} />
+          <div className="hidden md:flex flex-col items-center text-center text-white max-w-[200px] shrink-0">
+            <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center shadow-md mb-3">
+              <Logo size="md" showText={false} />
             </div>
-            <h2 className="text-2xl font-black font-sans tracking-tight mb-1">Cleanza</h2>
-            <p className="text-sm font-bold text-yellow-300 tracking-wide font-sans mb-3">
+            <h2 className="text-xl font-black font-sans tracking-tight mb-0.5">Cleanza</h2>
+            <p className="text-xs font-bold text-yellow-300 tracking-wide font-sans mb-2">
               Lebih Hemat Lebih Cepat
             </p>
-            <p className="text-[11px] text-green-100 leading-relaxed max-w-[240px]">
-              Platform laundry premium, pembersih sepatu, kasur, AC, dan deep cleaning rumah dalam satu genggaman.
+            <p className="text-[10px] text-green-100 leading-relaxed max-w-[180px]">
+              Platform laundry premium, pembersih sepatu, kasur, AC, dan deep cleaning rumah.
             </p>
           </div>
 
           {/* RIGHT SIDE: AUTH CARD (Matches Shopee white form card, compact padding) */}
-          <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-5 md:p-6 border border-gray-100 relative shrink-0">
+          <div className="w-full max-w-sm bg-white rounded-xl shadow-xl p-4 sm:p-5 border border-gray-100 relative shrink-0">
             
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base font-extrabold text-gray-800">
