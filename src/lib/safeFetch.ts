@@ -596,41 +596,6 @@ export async function safeFetch(input: RequestInfo | URL, init?: RequestInit): P
 }
 
 export function initializeSafeFetch() {
-  try {
-    const originalFetch = window.fetch;
-    // Attempt global override with protective checks
-    Object.defineProperty(window, 'fetch', {
-      value: async function (input: RequestInfo | URL, init?: RequestInit) {
-        let urlStr = '';
-        if (typeof input === 'string') {
-          urlStr = input;
-        } else if (input instanceof URL) {
-          urlStr = input.toString();
-        } else if (input && typeof input === 'object' && 'url' in input) {
-          urlStr = (input as any).url;
-        }
-
-        if (urlStr.includes('/api/')) {
-          try {
-            const response = await originalFetch(input, init);
-            const contentType = response.headers.get('content-type') || '';
-            if (contentType.includes('text/html') || contentType.includes('text/plain')) {
-              return await handleApiFallback(urlStr, init);
-            }
-            if (response.ok) {
-              return response;
-            }
-            return await handleApiFallback(urlStr, init);
-          } catch (networkError) {
-            return await handleApiFallback(urlStr, init);
-          }
-        }
-        return originalFetch(input, init);
-      },
-      configurable: true,
-      writable: true
-    });
-  } catch (e) {
-    console.warn('safeFetch: Global window.fetch override blocked by browser security/iframe settings. Using fallback safeFetch imports instead.', e);
-  }
+  // Explicit imports of safeFetch are used across the app to guarantee compatibility
+  console.log('safeFetch loaded successfully.');
 }
