@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // @ts-ignore
-import cleanzaLogo from '../assets/images/cleanza_logo_1782968054052.png';
+import cleanzaLogo from '../assets/images/logo cleanzaa.png';
 
 interface LogoProps {
   className?: string;
@@ -13,8 +13,8 @@ export default function Logo({ className = '', size = 'md', showText = false }: 
 
   // Dimensions based on size (enlarged slightly)
   const dimensions = {
-    sm: 'w-10 h-10',
-    md: 'w-16 h-16',
+    sm: 'w-12 h-12',
+    md: 'w-12 h-12',
     lg: 'w-20 h-20',
     xl: 'w-28 h-28'
   }[size];
