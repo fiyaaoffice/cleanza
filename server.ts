@@ -652,6 +652,14 @@ app.post("/api/payments/sync", (req, res) => {
   });
 });
 
+// Endpoint to retrieve Google Maps API key dynamically for client-side load
+app.get("/api/shipping/maps-key", (req, res) => {
+  res.json({
+    success: true,
+    key: process.env.GOOGLE_MAPS_PLATFORM_KEY || ""
+  });
+});
+
 // 7. Shipping Distance and Duration Calculation API using Google Maps
 app.post("/api/shipping/calculate", async (req, res) => {
   const { origin, destination, weightGrams } = req.body;

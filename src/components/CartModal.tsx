@@ -40,11 +40,27 @@ export default function CartModal({
   const [notes, setNotes] = useState('');
   
   // Google Maps States & Refs
+  const [googleMapsKey, setGoogleMapsKey] = useState('');
   const [gmapsLoaded, setGmapsLoaded] = useState(false);
+  const [mapsAuthFailed, setMapsAuthFailed] = useState(false);
   const autocompleteInputRef = useRef<HTMLInputElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [markerInstance, setMarkerInstance] = useState<any>(null);
+  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Catch Google Maps authorization errors (such as InvalidKeyMapError) globally
+  useEffect(() => {
+    (window as any).gm_authFailure = () => {
+      console.warn("Google Maps SDK authentication failed (e.g., InvalidKeyMapError).");
+      setMapsAuthFailed(true);
+    };
+    return () => {
+      if ((window as any).gm_authFailure) {
+        delete (window as any).gm_authFailure;
+      }
+    };
+  }, []);
 
   // Dynamic Courier States
   const [selectedCourierId, setSelectedCourierId] = useState<'cleanza_express' | 'spx'>('spx');
@@ -59,11 +75,23 @@ export default function CartModal({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Google Maps SDK Loader
-  const googleMapsKey = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
-
+  // Fetch Google Maps API Key from Backend
   useEffect(() => {
-    if (isOpen && checkoutStep === 'shipping' && googleMapsKey) {
+    if (isOpen) {
+      safeFetch('/api/shipping/maps-key')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.key) {
+            setGoogleMapsKey(data.key);
+          }
+        })
+        .catch(err => console.error("Error fetching maps key:", err));
+    }
+  }, [isOpen]);
+
+  // Google Maps SDK Loader
+  useEffect(() => {
+    if (isOpen && checkoutStep === 'shipping' && googleMapsKey && !mapsAuthFailed) {
       const loadScript = () => {
         if ((window as any).google && (window as any).google.maps) {
           setGmapsLoaded(true);
@@ -84,19 +112,24 @@ export default function CartModal({
         };
         script.onerror = () => {
           console.error("Failed to load Google Maps SDK");
+          setMapsAuthFailed(true);
         };
         document.head.appendChild(script);
       };
 
       loadScript();
     }
-  }, [isOpen, checkoutStep, googleMapsKey]);
+  }, [isOpen, checkoutStep, googleMapsKey, mapsAuthFailed]);
 
   // Google Maps Autocomplete and Interactive Map Sync
   useEffect(() => {
-    if (!gmapsLoaded || !autocompleteInputRef.current) return;
+    if (checkoutStep !== 'shipping') return;
+    if (!gmapsLoaded || !autocompleteInputRef.current || mapsAuthFailed) return;
 
     try {
+      if (!(window as any).google || !(window as any).google.maps || !(window as any).google.maps.places) {
+        return;
+      }
       const autocomplete = new (window as any).google.maps.places.Autocomplete(autocompleteInputRef.current, {
         componentRestrictions: { country: 'id' },
         fields: ['formatted_address', 'geometry', 'name'],
@@ -112,61 +145,49 @@ export default function CartModal({
         const formattedAddress = place.formatted_address || place.name || '';
         setAddress(formattedAddress);
 
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        const coords = { lat, lng };
+        setSelectedCoords(coords);
+
         // Handle map centering and marker placement
         if (mapInstance && markerInstance) {
-          mapInstance.setCenter(place.geometry.location);
+          mapInstance.setCenter(coords);
           mapInstance.setZoom(16);
-          markerInstance.setPosition(place.geometry.location);
+          markerInstance.setPosition(coords);
           markerInstance.setVisible(true);
-        } else if (mapContainerRef.current) {
-          const map = new (window as any).google.maps.Map(mapContainerRef.current, {
-            center: place.geometry.location,
-            zoom: 16,
-            disableDefaultUI: true,
-            zoomControl: true,
-            gestureHandling: 'cooperative'
-          });
-          const marker = new (window as any).google.maps.Marker({
-            position: place.geometry.location,
-            map: map,
-            draggable: true
-          });
-
-          marker.addListener('dragend', () => {
-            const pos = marker.getPosition();
-            if (pos) {
-              const geocoder = new (window as any).google.maps.Geocoder();
-              geocoder.geocode({ location: pos }, (results: any, status: any) => {
-                if (status === 'OK' && results[0]) {
-                  setAddress(results[0].formatted_address);
-                }
-              });
-            }
-          });
-
-          setMapInstance(map);
-          setMarkerInstance(marker);
         }
       });
 
       return () => {
-        (window as any).google?.maps?.event?.clearInstanceListeners(autocomplete);
+        if ((window as any).google?.maps?.event?.clearInstanceListeners) {
+          (window as any).google.maps.event.clearInstanceListeners(autocomplete);
+        }
       };
     } catch (err) {
       console.error("Error setting up Autocomplete:", err);
     }
-  }, [gmapsLoaded, mapInstance, markerInstance]);
+  }, [gmapsLoaded, checkoutStep, mapInstance, markerInstance, mapsAuthFailed]);
 
   // Map Initialization default (centered in Cikarang)
   useEffect(() => {
-    if (!gmapsLoaded || !mapContainerRef.current || mapInstance) return;
+    if (checkoutStep !== 'shipping') {
+      setMapInstance(null);
+      setMarkerInstance(null);
+      return;
+    }
+    if (!gmapsLoaded || !mapContainerRef.current || mapsAuthFailed) return;
+    if (mapInstance) return;
 
     try {
-      const defaultCenter = { lat: -6.2625, lng: 107.1167 };
+      if (!(window as any).google || !(window as any).google.maps) {
+        return;
+      }
+      const defaultCenter = selectedCoords || { lat: -6.2625, lng: 107.1167 };
       
       const map = new (window as any).google.maps.Map(mapContainerRef.current, {
         center: defaultCenter,
-        zoom: 13,
+        zoom: selectedCoords ? 16 : 13,
         disableDefaultUI: true,
         zoomControl: true,
         gestureHandling: 'cooperative'
@@ -175,13 +196,17 @@ export default function CartModal({
       const marker = new (window as any).google.maps.Marker({
         position: defaultCenter,
         map: map,
-        visible: false,
+        visible: !!selectedCoords,
         draggable: true
       });
 
       marker.addListener('dragend', () => {
         const pos = marker.getPosition();
         if (pos) {
+          const lat = pos.lat();
+          const lng = pos.lng();
+          setSelectedCoords({ lat, lng });
+
           const geocoder = new (window as any).google.maps.Geocoder();
           geocoder.geocode({ location: pos }, (results: any, status: any) => {
             if (status === 'OK' && results[0]) {
@@ -196,7 +221,7 @@ export default function CartModal({
     } catch (err) {
       console.error("Error setting up map:", err);
     }
-  }, [gmapsLoaded]);
+  }, [gmapsLoaded, checkoutStep, mapsAuthFailed]);
 
   // Sync user info
   useEffect(() => {
@@ -403,6 +428,7 @@ export default function CartModal({
     setAddress('');
     setAddressDetail('');
     setNotes('');
+    setSelectedCoords(null);
   };
 
   return (
@@ -549,17 +575,17 @@ export default function CartModal({
                   />
                 </div>
 
-                <div>
+                 <div>
                   <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
                     <Navigation className="w-3.5 h-3.5 text-[#017A3E]" />
-                    Cari Alamat dengan Google Maps
+                    {(!googleMapsKey || mapsAuthFailed) ? "Alamat Lengkap Pengiriman (Mode Manual)" : "Cari Alamat dengan Google Maps"}
                   </label>
                   <div className="relative">
                     <input
-                      ref={autocompleteInputRef}
+                      ref={(!googleMapsKey || mapsAuthFailed) ? undefined : autocompleteInputRef}
                       type="text"
                       required
-                      placeholder={gmapsLoaded ? "Ketik nama jalan, perumahan, atau gedung..." : "Memuat data Google Maps..."}
+                      placeholder={(!googleMapsKey || mapsAuthFailed) ? "Nama jalan, No. rumah, RT/RW, Kecamatan, Kota/Kabupaten, Kode Pos" : (gmapsLoaded ? "Ketik nama jalan, perumahan, atau gedung..." : "Memuat data Google Maps...")}
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       className="w-full glass-input pl-10 pr-4 py-2.5 rounded-xl text-sm"
@@ -567,7 +593,10 @@ export default function CartModal({
                     <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-red-500 animate-pulse" />
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1 italic">
-                    Pilih alamat dari rekomendasi daftar pilihan Google untuk akurasi pengiriman yang maksimal.
+                    {(!googleMapsKey || mapsAuthFailed) 
+                      ? "Silakan ketik alamat Anda dengan lengkap dan jelas agar kurir dapat menemukannya dengan mudah."
+                      : "Pilih alamat dari rekomendasi daftar pilihan Google untuk akurasi pengiriman yang maksimal."
+                    }
                   </p>
                 </div>
 
@@ -595,17 +624,45 @@ export default function CartModal({
                       Peta Interaktif
                     </span>
                   </div>
-                  <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm relative">
-                    <div 
-                      ref={mapContainerRef} 
-                      className="w-full h-40 bg-gray-50"
-                      style={{ minHeight: '160px' }}
-                    />
-                    <div className="absolute bottom-2 left-2 right-2 bg-white/95 backdrop-blur-sm px-2.5 py-1.5 rounded-xl text-[9px] text-gray-600 font-medium shadow-sm flex items-center gap-1.5 border border-gray-100">
-                      <span className="w-1.5 h-1.5 bg-[#017A3E] rounded-full animate-ping"></span>
-                      <span>Geser pin merah di peta untuk menyempurnakan lokasi pengiriman Anda</span>
+
+                  {(!googleMapsKey || mapsAuthFailed) ? (
+                    <div className="rounded-2xl p-4 bg-amber-50/70 border border-amber-200/50 space-y-2.5">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-xs font-bold text-amber-800">Pratinjau Peta Dinonaktifkan</h4>
+                          <p className="text-[11px] text-amber-700 leading-relaxed mt-0.5">
+                            {mapsAuthFailed 
+                              ? "Kunci Google Maps API yang terkonfigurasi tidak valid (InvalidKeyMapError). Hubungi admin toko untuk memperbarui Google Maps API key di Secrets."
+                              : "Kunci Google Maps API belum dikonfigurasi oleh admin toko. Mode manual aktif secara otomatis."
+                            }
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="text-[10px] text-gray-500 bg-white/60 p-2.5 rounded-xl space-y-1.5 border border-gray-100">
+                        <p className="font-semibold text-gray-700">💡 Petunjuk untuk Pemilik Toko (Admin):</p>
+                        <ol className="list-decimal pl-3.5 space-y-1 leading-normal">
+                          <li>Buka <strong>Settings</strong> (ikon gerigi ⚙️ di kanan atas layar ini)</li>
+                          <li>Pilih menu <strong>Secrets</strong></li>
+                          <li>Tambahkan secret bernama <code>GOOGLE_MAPS_PLATFORM_KEY</code></li>
+                          <li>Masukkan API Key Google Cloud Console Anda yang valid</li>
+                        </ol>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm relative">
+                      <div 
+                        ref={mapContainerRef} 
+                        className="w-full h-40 bg-gray-50"
+                        style={{ minHeight: '160px' }}
+                      />
+                      <div className="absolute bottom-2 left-2 right-2 bg-white/95 backdrop-blur-sm px-2.5 py-1.5 rounded-xl text-[9px] text-gray-600 font-medium shadow-sm flex items-center gap-1.5 border border-gray-100">
+                        <span className="w-1.5 h-1.5 bg-[#017A3E] rounded-full animate-ping"></span>
+                        <span>Geser pin merah di peta untuk menyempurnakan lokasi pengiriman Anda</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Courier Selection Option */}
